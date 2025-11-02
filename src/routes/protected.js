@@ -5,6 +5,12 @@ const router = express.Router();
 
 // 保護されたルート
 router.get('/profile', requireAuth, (req, res) => {
+  //プロバイダーによって表示を変える
+  const isOAuth = req.user.provider !== 'local';
+  const providerDisplay = isOAuth
+    ? `OAuth (${req.user.provider})`
+    : 'Email/Password';
+ 
   res.send(`
     <!DOCTYPE>
     <html>
@@ -23,15 +29,31 @@ router.get('/profile', requireAuth, (req, res) => {
             padding: 20px;
             background: #f9f9f9;
           }
-          img {
+          .avatar {
             border-radius: 50%;
             margin: 10px 0;
+          }
+          .info-row {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
           }
           pre {
             background: #fff;
             padding: 15px;
             border-radius: 5px;
             overflow-x: auto;
+          }
+          button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
           }
           button:hover {
             background: #c82333;
@@ -45,10 +67,20 @@ router.get('/profile', requireAuth, (req, res) => {
       <body>
         <div class="profile-card">
           <h1>Profile</h1>
-          <img src="${req.user.avatarUrl}" width="100" alt="Avatar" />
-          <p><strong>UserName:</strong> ${req.user.username}</p>
-          <p><strong>Provider:</strong> ${req.user.provider}</p>
-          <p><strong>Email:</strong> ${req.user.email || 'Not provided'}</p>        
+
+          ${req.user.avatarUrl ? `<img src="${req.user.avatarUrl}" width="100" alt="Avatar" />` : ''}
+
+          <div class="info-row">
+            <strong>UserName:</strong> ${req.user.username}
+          </div>
+
+          <div class="info-row">
+            <strong>Email:</strong> ${req.user.email || 'Not provided'}
+          </div>
+          
+          <div class="info-row">
+            <strong>Login Method:</strong> ${providerDisplay}
+          </div>
         
           <h2>Full User Data:</h2>
           <pre>${JSON.stringify(req.user, null, 2)}</pre>
