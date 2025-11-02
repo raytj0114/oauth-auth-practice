@@ -7,6 +7,16 @@ const router = express.Router();
 // 認証開始エンドポイント
 router.get('/:provider', (req, res) => {
   try {
+    // 既にログイン中か確認
+    const sessionId = req.cookies.sessionId;
+    const session = sessionId ? SessionManager.get(sessionId) : null;
+
+    if (session) {
+      console.log('[Auth] User already authenticated, redirecting to profile');
+      return res.redirect('/profile');
+    }
+
+    // ログインしていなければ認証開始
     const { provider } = req.params;
     console.log(`\n=== Authentication Flow Started ===`);
     console.log(`Provider: ${provider}`);
