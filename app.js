@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
 import authRoutes from './src/routes/auth.js';
+import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
 
 dotenv.config();
@@ -43,29 +44,47 @@ app.get('/', (req, res) => {
           font-family: sans-serif;
           max-width: 600px;
           margin: 50px auto;
+          padding: 20px;
+          text-align: center;
         }
         h1 {
           color: #333;
         }
+        .section {
+          margin: 30px 0;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          background: #f9f9f9;
+        }
+        .section h2 {
+          margin-top: 0;
+          font-size: 20px;
+        }
         .btn {
           display: block;
-          margin: 15px 0;
-          padding: 15px;
-          background: #0366d6;
+          margin: 10px 0;
+          padding: 12px;
           color: white;
           text-decoration: none;
           border-radius: 5px;
-          font-size: 18px;
-          transition: background 0.3s;
+          font-size: 16px;
+          transition: opacity 0.3s;
         }
         .btn:hover {
-          background: #0256c4;
+          opacity: 0.8;
         }
-        .btn-secondary {
+        .btn-github {
+          background: #0366d6;
+        }
+        .btn-signup {
+          background: #28a745;
+        }
+        .btn-signin {
+          background: #007bff;
+        }
+        .btn-profile {
           background: #6c757d;
-        }
-        .btn-secondary {
-          background: #5a6268;
         }
         .env-badge {
           display: inline-block;
@@ -82,25 +101,35 @@ app.get('/', (req, res) => {
         <p>GitHub OAuth 認証のデモアプリケーション</p>
         <div class="env-badge">Environment: ${NODE_ENV}</div>
 
-        <a href="/auth/github" class="btn">
-          🐙 Login with GitHub
-        </a>
+        <div class="section">
+          <h2>🌐 OAuth Login</h2>
+          <a href="/auth/github" class="btn btn-github">
+            🐙 Login with GitHub
+          </a>
+        </div>
 
-        <a href="/profile" class="btn btn-secondary">
-          👤 View Profile (Protected)
-        </a>
-
+        <div class="section">
+          <h2>📧 Email/Password Login</h2>
+          <a href="/local/signup" class="btn btn-signup">
+            ✨ Sign Up (Create Account)
+          </a>
+          <a href="/local/signin" class="btn btn-signin">
+            🔑 Sign In (Existing Account)
+          </a>
+        </div>
+        
         <hr style="margin 30px 0;">
 
-        <p style="font-size: 14px; color: #666;">
-          初めての方は「Login with Github」からログインしてください
-        </p>
+        <a href="/profile" class="btn btn-profile">
+          👤 View Profile (Protected)
+        </a>
       </body>
       </html>
     `);
 });
 
 app.use('/auth', authRoutes);
+app.use('/local', localAuthRoutes);
 app.use('/', protectedRoutes);
 
 // サーバー起動
