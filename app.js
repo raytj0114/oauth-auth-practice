@@ -1,0 +1,112 @@
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
+import AuthManager from './src/auth/AuthManager.js';
+import GitHubProvider from './src/auth/providers/GitHubProvider.js';
+import authRoutes from './src/routes/auth.js';
+import protectedRoutes from './src/routes/protected.js';
+
+dotenv.config();
+
+const app = express();
+
+// 環境変数から設定を取得
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// ミドルウェア
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// リクエストログ
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// プロバイダー登録(環境変数から設定を渡す)
+AuthManager.registerProvider('github', new GitHubProvider({
+  clientId: process.env.GITHUB_CLIENT_ID,
+  clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  redirectUri: process.env.GITHUB_REDIRECT_URI
+}));
+
+// ルート
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <title>OAuth Practice</title>
+      <style>
+        body {
+          font-family: sans-serif;
+          max-width: 600px;
+          margin: 50px auto;
+        }
+        h1 {
+          color: #333;
+        }
+        .btn {
+          display: block;
+          margin: 15px 0;
+          padding: 15px;
+          background: #0366d6;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          font-size: 18px;
+          transition: background 0.3s;
+        }
+        .btn:hover {
+          background: #0256c4;
+        }
+        .btn-secondary {
+          background: #6c757d;
+        }
+        .btn-secondary {
+          background: #5a6268;
+        }
+        .env-badge {
+          display: inline-block;
+          padding: 5px 10px;
+          background: ${NODE_ENV === 'production' ? '#28a745' : '#ffc107'};
+          color: ${NODE_ENV ===  'production' ? 'white' : '#black'}
+          border-radius: 3px;
+          font-size: 12px;
+          margin-top: 10px;
+        }
+      </style>
+      <body>
+        <h1>🔐 OAuth 2.0 Practice</h1>
+        <p>GitHub OAuth 認証のデモアプリケーション</p>
+        <div class="env-badge">Environment: ${NODE_ENV}</div>
+
+        <a href="/auth/github" class="btn">
+          🐙 Login with GitHub
+        </a>
+
+        <a href="/profile" class="btn btn-secondary">
+          👤 View Profile (Protected)
+        </a>
+
+        <hr style="margin 30px 0;">
+
+        <p style="font-size: 14px; color: #666;">
+          初めての方は「Login with Github」からログインしてください
+        </p>
+      </body>
+      </html>
+    `);
+});
+
+app.use('/auth', authRoutes);
+app.use('/', protectedRoutes);
+
+// サーバー起動
+app.listen(PORT, () => {
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📦 Environment: ${NODE_ENV}`);
+  console.log(`${'='.repeat(50)}\n`);
+});

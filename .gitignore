@@ -1,0 +1,15 @@
+# .gitignore
+
+# 依存関係
+node_modules/
+
+# 環境変数(重要!)
+.env
+
+# システムファイル
+.DS_STORE
+*.log
+
+# エディタ設定
+.vscode/
+.idea/
