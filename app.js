@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
+import GoogleProvider from './src/auth/providers/GoogleProvider.js';
 import authRoutes from './src/routes/auth.js';
 import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
@@ -26,11 +27,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// プロバイダー登録(環境変数から設定を渡す)
+// OAuth プロバイダー登録(環境変数から設定を渡す)
 AuthManager.registerProvider('github', new GitHubProvider({
   clientId: process.env.GITHUB_CLIENT_ID,
   clientSecret: process.env.GITHUB_CLIENT_SECRET,
   redirectUri: process.env.GITHUB_REDIRECT_URI
+}));
+
+AuthManager.registerProvider('google', new GoogleProvider({
+  clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  redirectUri: process.env.GOOGLE_REDIRECT_URI
 }));
 
 // ルート
@@ -77,6 +84,9 @@ app.get('/', (req, res) => {
         .btn-github {
           background: #0366d6;
         }
+        .btn-google {
+          background: #db4437;
+        }
         .btn-signup {
           background: #28a745;
         }
@@ -105,6 +115,9 @@ app.get('/', (req, res) => {
           <h2>🌐 OAuth Login</h2>
           <a href="/auth/github" class="btn btn-github">
             🐙 Login with GitHub
+          </a>
+          <a href="/auth/google" class="btn btn-google">
+            🔴 Login with Google
           </a>
         </div>
 
