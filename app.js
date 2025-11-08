@@ -1,6 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import DatabaseConnection from './src/database/connection.js';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
 import GoogleProvider from './src/auth/providers/GoogleProvider.js';
@@ -15,6 +16,23 @@ const app = express();
 // 環境変数から設定を取得
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const USE_DATABASE = process.env.USE_DATABASE === 'true';
+
+if (USE_DATABASE) {
+  console.log('[App] Using PostgreSQL database');
+  DatabaseConnection.initialize();
+
+  // 接続テスト
+  DatabaseConnection.testConnection()
+    .then(success => {
+      if (!success) {
+        console.log('[App] Database connection failed. Exiting...');
+        process.exit(1);
+      }
+    });
+} else {
+  console.log('[App] Using in-memory storage');
+}
 
 // ミドルウェア
 app.use(express.json());
@@ -141,6 +159,40 @@ app.get('/', (req, res) => {
     `);
 });
 
+if (NODE_ENV === 'development' && USE_DATABASE) {
+  app.get('/debug/db', async (req, res) => {
+    try {
+      // テーブル一覧
+      const tables = await DatabaseConnection.query(`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+      `);
+
+      // users テーブルの件数
+      const userCount = await DatabaseConnection.query(
+        'SELECT COUNT(*) as count FROM users'
+      );
+
+      // authentications テーブルの件数
+      const authCount = await DatabaseConnection.query(
+        'SELECT COUNT(*) as count FROM authentications'
+      );
+
+      res.json({
+        status: 'connected',
+        tables: tables.rows,
+        counts: {
+          users: userCount.rows[0].count,
+          authentications: authCount.rows[0].count
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+}
+
 app.use('/auth', authRoutes);
 app.use('/local', localAuthRoutes);
 app.use('/', protectedRoutes);
@@ -150,5 +202,23 @@ app.listen(PORT, () => {
   console.log(`\n${'='.repeat(50)}`);
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 Environment: ${NODE_ENV}`);
+  console.log(`💾 Storage: ${USE_DATABASE ? 'PostgreSQL' : 'Memory'}`);
   console.log(`${'='.repeat(50)}\n`);
+});
+
+// プロセス終了時にプールをクローズ
+process.on('SIGTERM', async () => {
+  console.log('[App] SIGTERM received, closing database connection...');
+  if (USE_DATABASE) {
+    await DatabaseConnection.close();
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('[App] SIGINT received, closing database connection...');
+  if (USE_DATABASE) {
+    await DatabaseConnection.close();
+  }
+  process.exit(0);
 });
