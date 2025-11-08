@@ -34,8 +34,8 @@ class SessionManager {
   get(sessionId) {
     const session = this.sessions.get(sessionId);
 
-    if(!session) {
-      console.log(`[SessionManager] Session expired: ${sessionId}`);
+    if (!session) {
+      console.log(`[SessionManager] Session not found: ${sessionId}`);
       return null;
     }
 
@@ -55,6 +55,27 @@ class SessionManager {
     return this.sessions.delete(sessionId);
   }
 
+  // セッションのユーザーデータを更新
+  updateUserData(sessionId, userData) {
+    const session = this.sessions.get(sessionId);
+
+    if (!session) {
+      console.log(`[SessionManager] Session not found for update: ${sessionId}`);
+      return false;
+    }
+
+    if (Date.now() > session.expiresAt) {
+      console.log(`[SessionManager] Cannot update expired session: ${sessionId}`);
+      this.sessions.delete(sessionId);
+      return false;
+    }
+
+    session.userData = userData;
+    console.log(`[SessionManager] Updated user data in session: ${sessionId}`);
+
+    return true;
+  }
+  
   // 全セッション表示(デバッグ用)
   debug() {
     console.log('[SessionManager] Active sessions:', this.sessions.size);
