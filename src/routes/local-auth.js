@@ -1,7 +1,6 @@
 import express from 'express';
-import UserStore from '../auth/UserStore.js';
+import UnifiedAuthService from '../auth/UnifiedAuthService.js';
 import SessionManager from '../auth/SessionManager.js';
-import { Session } from 'inspector';
 
 const router = express.Router();
 
@@ -22,7 +21,7 @@ router.get('/signup', (req, res) => {
       <head>
         <title>Sign Up</title>
         <style>
-          body{
+          body {
             font-family: sans-serif;
             max-width: 400px;
             margin: 50px auto;
@@ -56,10 +55,6 @@ router.get('/signup', (req, res) => {
           button:hover {
             background: #218838;
           }
-          .error {
-            color: red;
-            margin-bottom: 15px;
-          }
           .link {
             text-align: center;
             margin-top: 15px;
@@ -86,6 +81,9 @@ router.get('/signup', (req, res) => {
         <div class="link">
           Already have an account? <a href="/local/signin">Sign In</a>
         </div>
+      <div class="link">
+        <a href="/">← Back to Home</a>
+      </div>
       </body>
     </html>
   `);
@@ -95,7 +93,7 @@ router.get('/signup', (req, res) => {
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-
+    
     console.log(`\n=== Sign Up Attempt ===`);
     console.log(`Username: ${username}`);
     console.log(`Email: ${email}`);
@@ -109,8 +107,8 @@ router.post('/signup', async (req, res) => {
       throw new Error('Password must be at least 6 characters');
     }
 
-    // ユーザー作成
-    const user = await UserStore.create(email, password, username);
+    // ユーザー登録
+    const user = await UnifiedAuthService.registerLocal(email, password, username);
 
     // 既存セッションがあれば削除
     const existingSessionId = req.cookies.sessionId;
@@ -130,7 +128,7 @@ router.post('/signup', async (req, res) => {
     });
 
     console.log(`[SignUp] User registered and logged in: ${user.username}`);
-    console.log(`=== Sign Up Complete ====\n`);
+    console.log(`=== Sign Up Complete ===\n`);
 
     res.redirect('/profile');
   } catch (error) {
@@ -160,7 +158,7 @@ router.get('/signin', (req, res) => {
       <head>
         <title>Sign In</title>
         <style>
-          body{
+          body {
             font-family: sans-serif;
             max-width: 400px;
             margin: 50px auto;
@@ -216,6 +214,9 @@ router.get('/signin', (req, res) => {
         <div class="link">
           Don't have an account? <a href="/local/signup">Sign Up</a>
         </div>
+      <div class="link">
+        <a href="/">← Back to Home</a>
+      </div>
       </body>
     </html>
   `);
@@ -234,8 +235,8 @@ router.post('/signin', async (req, res) => {
       throw new Error('Email and password are required');
     }
 
-    // パスワード検証
-    const user = await UserStore.verifyPassword(email, password);
+    // ログイン
+    const user = await UnifiedAuthService.loginLocal(email, password);
 
     if (!user) {
       throw new Error('Invalid email or password');
