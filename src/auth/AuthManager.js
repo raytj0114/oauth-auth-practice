@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import SessionManager from './SessionManager.js';
+import UnifiedAuthService from './UnifiedAuthService.js';
 
 class AuthManager {
   constructor() {
@@ -23,7 +24,7 @@ class AuthManager {
     console.log(`[AuthManager] Starting authentication with ${providerName}`);
 
     const provider = this.providers[providerName];
-    if(!provider) {
+    if (!provider) {
       throw new Error(`Provider ${providerName} not found`);
     }
 
@@ -53,20 +54,26 @@ class AuthManager {
     this.pendingStates.delete(state);
 
     const provider = this.providers[providerName];
-    if(!provider) {
+    if (!provider) {
       throw new Error(`Provider ${providerName} not found`);
     }
 
     // OAuth フロー実行
     const accessToken = await provider.exchangeCodeForToken(code);
-    const userInfo = await provider.getUserInfo(accessToken);
+    const oauthUserInfo = await provider.getUserInfo(accessToken);
+
+    // ログインまたは登録
+    const user = await UnifiedAuthService.loginOrRegisterOAuth(
+      providerName,
+      oauthUserInfo
+    );
 
     // セッション生成
-    const sessionId = SessionManager.create(userInfo.providerId, userInfo);
+    const sessionId = SessionManager.create(user.id, user);
 
-    console.log(`[AuthManager] Authentication successful for ${userInfo.userName}`);
+    console.log(`[AuthManager] Authentication successful for ${user.username}`);
 
-    return { sessionId, userInfo };
+    return { sessionId, userInfo: user };
   }
 
   // 古いstateのクリーンアップ
