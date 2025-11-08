@@ -1,0 +1,49 @@
+version: "3.8"
+
+# サービス(コンテナ)の定義
+services:
+  postgres:
+    # PostgreSQL 16 (alpine = 軽量版)
+    image: postgres:16-alpine
+
+    # コンテナに名前を付ける
+    container_name: oauth-practice-db
+
+    # 環境変数の設定
+    environment:
+      # データベースユーザー名
+      POSTGRES_USER: oauth_user
+      # パスワード(本番では環境変数から読み込む)
+      POSTGRES_PASSWORD: oauth_password
+      # 作成するデータベース名
+      POSTGRES_DB: oauth_practice
+
+    # ポートのマッピング設定 (ホスト:コンテナ)
+    ports:
+      - "5432:5432"
+
+    # ボリュームのマウント設定
+    volumes:
+      # データを永続化(コンテナ削除してもデータが残る)
+      - postgres_data:/var/lib/postgresql/data
+      # 初回起動時に実行されるSQL
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    # データベースが起動しているか確認
+    healthcheck:
+      # ヘルスチェックで実行するコマンドを指定
+      # CMD-SHELL形式でシェルコマンドを実行し、pg_isreadyでPostgreSQLの接続可否を確認
+      test: ["CMD-SHELL", "pg_isready -U oauth_user -d oauth_practice"]
+      # ヘルスチェックを実行する間隔（10秒ごとにチェック）
+      interval: 10s
+      # 各ヘルスチェックのタイムアウト時間（5秒以内に応答がなければ失敗とみなす）
+      timeout: 5s
+      # 連続で何回失敗したら unhealthy とみなすか（5回連続失敗で unhealthy）
+      retries: 5
+
+# 名前付きボリュームの定義
+volumes:
+  # PostgreSQLのデータを保存するボリューム
+  postgres_data:
+    # ローカルストレージを使用(デフォルト)
+    driver: local

@@ -6,6 +6,13 @@ node_modules/
 # 環境変数(重要!)
 .env
 
+# Docker volumes
+postgres_data/
+
+# データベースバックアップ
+*.sql.backup
+database/backups/
+
 # システムファイル
 .DS_Store
 *.log
