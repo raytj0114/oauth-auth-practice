@@ -191,6 +191,41 @@ if (NODE_ENV === 'development' && USE_DATABASE) {
       res.status(500).json({ error: error.message });
     }
   });
+  app.get('/debug/repositories', async (req, res) => {
+    try {      
+      const { default: PostgresUserRepository } = await import('./src/auth/stores/postgres/PostgresUserRepository.js');
+      const { default: PostgresAuthRepository } = await import('./src/auth/stores/postgres/PostgresAuthRepository.js');
+      
+      const userRepo = new PostgresUserRepository();
+      const authRepo = new PostgresAuthRepository();
+
+      // テストユーザー作成
+      const user = await userRepo.create({
+        username: 'testuser',
+        email: 'test@example.com',
+        avatarUrl: null
+      });
+
+      // 認証情報作成
+      const authId = await authRepo.createLocal(user.id, 'test@example.com', 'password123');
+
+      // 取得テスト
+      const foundUser = await userRepo.findById(user.id);
+      const auths = await authRepo.findAuthsByUserId(user.id);
+
+      // パスワード検証テスト
+      const verifiedUserId = await authRepo.verifyLocalPassword('test@example.com', 'password123');
+
+      res.json({
+        status: 'success',
+        created: { user, authId },
+        found: { user: foundUser, auths },
+        verified: verifiedUserId === user.id
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 }
 
 app.use('/auth', authRoutes);
