@@ -10,11 +10,13 @@ OAuth 2.0 とメール/パスワード認証の実装練習プロジェクト
 - ✅ セッション管理
 - ✅ ユーザープロフィール
 - ✅ 設定管理
+- ✅ PostgreSQL データベース
 
 ## ドキュメント
 
 - **OAuth を学ぶ**: [OAuth 2.0 完全ガイド](./docs/OAUTH_GUIDE.md) - 基礎から実装まで
-- **システム設計**: [Architecture](./ARCHITECTURE.md) - 技術的な設計
+- **システム設計**: [Architecture](./ARCHITECTURE.md) - 技術的な設計詳細
+- **データベース**: [Database](./DATABASE.md) - PostgreSQL の設計と運用
 
 ## セットアップ
 
@@ -24,7 +26,29 @@ OAuth 2.0 とメール/パスワード認証の実装練習プロジェクト
 npm install
 ```
 
-### 2. 環境変数の設定
+### 2. PostgreSQL の起動
+
+Docker を使用して PostgreSQL を起動します:
+
+```bash
+# PostgreSQL起動
+docker-compose up -d
+
+# 起動確認
+docker-compose ps
+
+# ログ確認
+docker-compose logs postgres
+```
+
+**Docker コマンド:**
+
+- `docker-compose up -d`: バックグラウンドで起動
+- `docker-compose down`: 停止
+- `docker-compose down -v`: 停止 + データ削除
+- `docker-compose logs -f postgres`: ログをリアルタイム表示
+
+### 3. 環境変数の設定
 
 `.env.example` をコピーして `.env` を作成:
 
@@ -32,24 +56,36 @@ npm install
 cp .env.example .env
 ```
 
-`.env` を編集して、OAuth 認証情報を設定:
+`.env` を編集:
 
 ```env
 PORT=3000
 NODE_ENV=development
 
+# GitHub OAuth
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 GITHUB_REDIRECT_URI=http://localhost:3000/auth/github/callback
 
+# Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
 
+# Session
 SESSION_MAX_AGE=86400000
+
+# Database
+USE_DATABASE=true
+DATABASE_URL=postgresql://oauth_user:oauth_password@localhost:5432/oauth_practice
 ```
 
-### 3. OAuth App の作成
+**USE_DATABASE の設定:**
+
+- `true`: PostgreSQL を使用(推奨)
+- `false`: メモリを使用(テスト用)
+
+### 4. OAuth App の作成
 
 #### GitHub
 
@@ -63,7 +99,7 @@ SESSION_MAX_AGE=86400000
 2. OAuth 2.0 クライアント ID を作成
 3. リダイレクト URI: `http://localhost:3000/auth/google/callback`
 
-### 4. サーバー起動
+### 5. サーバー起動
 
 ```bash
 npm run dev
@@ -77,25 +113,31 @@ http://localhost:3000 にアクセス
 src/
 ├── auth/
 │   ├── stores/
-│   │   ├── UserRepository.js     # ユーザー情報管理
-│   │   └── AuthRepository.js     # 認証情報管理
+│   │   ├── UserRepository.js              # メモリ版 UserRepository
+│   │   ├── AuthRepository.js              # メモリ版 AuthRepository
+│   │   ├── RepositoryFactory.js           # Repository 切り替え
+│   │   └── postgres/
+│   │       ├── PostgresUserRepository.js  # PostgreSQL版 UserRepository
+│   │       └── PostgresAuthRepository.js  # PostgreSQL版 AuthRepository
 │   ├── providers/
-│   │   ├── GitHubProvider.js     # GitHub OAuth
-│   │   └── GoogleProvider.js     # Google OAuth
-│   ├── UnifiedAuthService.js     # 認証ビジネスロジック
-│   ├── AuthManager.js            # OAuth フロー管理
-│   └── SessionManager.js         # セッション管理
+│   │   ├── GitHubProvider.js              # GitHub OAuth
+│   │   └── GoogleProvider.js              # Google OAuth
+│   ├── UnifiedAuthService.js              # 認証ビジネスロジック
+│   ├── AuthManager.js                     # OAuth フロー管理
+│   └── SessionManager.js                  # セッション管理
+├── database/
+│   └── connection.js                      # PostgreSQL 接続プール
 ├── middleware/
-│   └── auth.js                   # 認証ミドルウェア
+│   └── auth.js                            # 認証ミドルウェア
 └── routes/
-    ├── auth.js                   # OAuth ルート
-    ├── local-auth.js             # メール/パスワード ルート
-    └── protected.js              # 保護されたルート
+    ├── auth.js                            # OAuth ルート
+    ├── local-auth.js                      # メール/パスワード ルート
+    └── protected.js                       # 保護されたルート
 ```
 
 ## アーキテクチャ
 
-このプロジェクトは**Repository パターン**を採用しています。
+このプロジェクトは**Repository パターン**と**Factory パターン**を採用しています。
 
 ### データ層の分離
 
@@ -108,6 +150,19 @@ src/
 │  AuthRepository     │  ← 認証情報(パスワード、OAuth連携)
 └─────────────────────┘
 ```
+
+### ストレージの切り替え
+
+```
+RepositoryFactory
+    ↓
+USE_DATABASE=true  → PostgreSQL Repository
+USE_DATABASE=false → Memory Repository
+```
+
+環境変数を変更するだけで、メモリとデータベースを簡単に切り替えられます。
+
+詳細は [ARCHITECTURE.md](./ARCHITECTURE.md) を参照してください。
 
 ## 認証パターン
 
@@ -147,19 +202,76 @@ npm run debug
 
 ### デバッグエンドポイント(開発環境のみ)
 
-```
-GET /debug
+```bash
+# ストレージ状態の確認
+GET http://localhost:3000/debug
+
+# データベースのリセット(PostgreSQL のみ)
+POST http://localhost:3000/debug/reset
+
+# サンプルデータの作成
+POST http://localhost:3000/debug/seed
 ```
 
-各ストアの状態をコンソールに出力します。
+### データベース管理
+
+```bash
+# PostgreSQL に接続
+docker-compose exec postgres psql -U oauth_user -d oauth_practice
+
+# テーブル一覧
+\dt
+
+# ユーザー確認
+SELECT * FROM users;
+
+# 認証情報確認
+SELECT * FROM authentications;
+
+# テーブル削除(開発用)
+TRUNCATE users RESTART IDENTITY CASCADE;
+TRUNCATE authentications RESTART IDENTITY CASCADE;
+
+# 終了
+\q
+```
 
 ## セキュリティ
 
 - ✅ パスワードは bcrypt でハッシュ化(saltRounds=10)
 - ✅ セッションは HttpOnly Cookie
 - ✅ CSRF 対策(State パラメータ)
+- ✅ パラメータ化クエリ(SQL インジェクション対策)
+- ✅ トランザクションでデータ整合性を保証
 - ✅ パスワードハッシュは外部に公開しない
 - ✅ OAuth アクセストークンは使い捨て(保存しない)
+
+## データベース
+
+### PostgreSQL (推奨)
+
+本番環境を想定した実装:
+
+- コネクションプール
+- トランザクション対応
+- JSONB 型でフレキシブルなデータ構造
+- インデックスで高速検索
+
+### メモリ (開発・テスト用)
+
+軽量で高速:
+
+- セットアップ不要
+- テストに最適
+- サーバー再起動でデータ消失
+
+### 切り替え方法
+
+```bash
+# .env ファイルで変更
+USE_DATABASE=true   # PostgreSQL
+USE_DATABASE=false  # メモリ
+```
 
 ## 学習ポイント
 
@@ -169,4 +281,42 @@ GET /debug
 2. パスワード認証とハッシュ化
 3. セッション管理
 4. Repository パターン
-5. データ層とビジネスロジック層の分離
+5. Factory パターン
+6. データ層とビジネスロジック層の分離
+7. PostgreSQL とトランザクション
+8. Docker でのデータベース管理
+
+## トラブルシューティング
+
+### PostgreSQL が起動しない
+
+```bash
+# ポート5432が使われていないか確認
+lsof -i :5432
+
+# コンテナを完全に削除して再作成
+docker-compose down -v
+docker-compose up -d
+```
+
+### パスワード認証エラー
+
+```bash
+# DATABASE_URL を確認
+cat .env | grep DATABASE_URL
+
+# コンテナを再作成
+docker-compose down -v
+docker-compose up -d
+```
+
+### データが表示されない
+
+```bash
+# USE_DATABASE の設定を確認
+cat .env | grep USE_DATABASE
+
+# サーバーログを確認
+# [RepositoryFactory] Using PostgresUserRepository
+# が表示されているか確認
+```

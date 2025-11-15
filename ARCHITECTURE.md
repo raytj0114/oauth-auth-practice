@@ -8,6 +8,9 @@
 4. [認証フロー](#認証フロー)
 5. [認証パターン](#認証パターン)
 6. [セキュリティ](#セキュリティ)
+7. [データベース実装](#データベース実装)
+8. [パフォーマンス考慮事項](#パフォーマンス考慮事項)
+9. [拡張ポイント](#拡張ポイント)
 
 ## 概要
 
@@ -17,6 +20,7 @@
 
 - **関心の分離**: データ層とビジネスロジック層を分離
 - **Repository パターン**: データアクセスを抽象化
+- **Factory パターン**: ストレージの切り替えを容易に
 - **セキュリティファースト**: パスワードハッシュ化、CSRF 対策など
 
 ## システム構成
@@ -39,16 +43,22 @@
 └─────────────────────────────────────────┘
                  ↓
 ┌─────────────────────────────────────────┐
-│  Data Access Layer (Repositories)       │
-│  - UserRepository                       │
-│  - AuthRepository                       │
+│  Factory Layer                          │
+│  - RepositoryFactory                    │
 └─────────────────────────────────────────┘
                  ↓
 ┌─────────────────────────────────────────┐
-│  Storage Layer (In-Memory)              │
-│  - Map (users)                          │
-│  - Map (authentications)                │
-│  - Map (sessions)                       │
+│  Data Access Layer (Repositories)       │
+│  - PostgresUserRepository               │
+│  - PostgresAuthRepository               │
+│  - MemoryUserRepository (for testing)   │
+│  - MemoryAuthRepository (for testing)   │
+└─────────────────────────────────────────┘
+                 ↓
+┌─────────────────────────────────────────┐
+│  Storage Layer                          │
+│  - PostgreSQL (production)              │
+│  - Memory/Map (development/testing)     │
 └─────────────────────────────────────────┘
 ```
 
@@ -86,6 +96,7 @@
 - `findById()`: ユーザー取得
 - `updatePreferences()`: 設定更新
 - `updateProfile()`: プロフィール更新
+- `updateLastLogin()`: 最終ログイン日時更新
 
 #### AuthRepository
 
@@ -113,6 +124,30 @@
 - `findUserByOAuth()`: OAuth でユーザー ID 取得
 - `findAuthsByUserId()`: ユーザーの認証方法取得
 
+#### RepositoryFactory
+
+**責務**: ストレージの切り替え
+
+**動作**:
+
+```javascript
+// 環境変数で切り替え
+USE_DATABASE=true  → PostgreSQL版を返す
+USE_DATABASE=false → メモリ版を返す
+```
+
+**メソッド**:
+
+- `getUserRepository()`: UserRepository を取得
+- `getAuthRepository()`: AuthRepository を取得
+- `getStorageType()`: 現在のストレージタイプを返す
+
+**実装パターン**:
+
+- Dynamic Import: 必要な時だけモジュールを読み込む
+- Singleton: アプリ全体で 1 つのインスタンス
+- Lazy Initialization: 初回アクセス時に初期化
+
 #### UnifiedAuthService
 
 **責務**: ビジネスロジックの調整
@@ -125,6 +160,11 @@
 - `getUserWithAuths()`: ユーザー情報+認証方法取得
 - `updatePreferences()`: 設定更新
 - `updateProfile()`: プロフィール更新
+
+**トランザクション対応**:
+
+- PostgreSQL 使用時は自動的にトランザクション実行
+- メモリ使用時はトランザクション不要
 
 #### OAuth Providers
 
@@ -154,8 +194,8 @@
 │ email               │
 │ createdAt           │
 │ lastLoginAt         │
-│ preferences (JSON)  │
-│ profile (JSON)      │
+│ preferences (JSONB) │
+│ profile (JSONB)     │
 └─────────────────────┘
          ↑
          │ 1:N
@@ -175,7 +215,6 @@
         ┌─────────────────┘
         │
         │ 同じユーザーが複数の認証方法を持てる
-        │ (将来の拡張用。現在は1ユーザー1認証)
 ```
 
 ### データの関係性
@@ -183,12 +222,12 @@
 **パターン 1 (現在の実装): 別アカウント**
 
 ```
-users: Map {
+users: Map/Table {
   'user_001' => { email: 'user@example.com', ... },
   'user_002' => { email: 'user@example.com', ... }  // 別ユーザー
 }
 
-authentications: Map {
+authentications: Map/Table {
   'auth_001' => { userId: 'user_001', provider: 'local', ... },
   'auth_002' => { userId: 'user_002', provider: 'github', ... }
 }
@@ -206,19 +245,23 @@ authentications: Map {
    ↓
 2. UnifiedAuthService.registerLocal()
    ↓
-3. UserRepository.create()
-   → users Map に追加
+3. トランザクション開始 (PostgreSQLの場合)
    ↓
-4. AuthRepository.createLocal()
+4. UserRepository.create()
+   → users テーブル/Map に追加
+   ↓
+5. AuthRepository.createLocal()
    → パスワードハッシュ化
-   → authentications Map に追加
+   → authentications テーブル/Map に追加
    ↓
-5. SessionManager.create()
+6. トランザクションコミット
+   ↓
+7. SessionManager.create()
    → sessions Map に追加
    ↓
-6. Cookie にセッションIDをセット
+8. Cookie にセッションIDをセット
    ↓
-7. /profile にリダイレクト
+9. /profile にリダイレクト
 ```
 
 ### OAuth ログイン (初回)
@@ -246,17 +289,21 @@ authentications: Map {
 8. AuthRepository.findUserByOAuth()
    → 見つからない (初回)
    ↓
-9. UserRepository.create()
-   → 新規ユーザー作成
+9. トランザクション開始 (PostgreSQLの場合)
    ↓
-10. AuthRepository.createOAuth()
+10. UserRepository.create()
+    → 新規ユーザー作成
+    ↓
+11. AuthRepository.createOAuth()
     → OAuth認証情報を作成
     ↓
-11. SessionManager.create()
+12. トランザクションコミット
     ↓
-12. Cookie にセッションIDをセット
+13. SessionManager.create()
     ↓
-13. /profile にリダイレクト
+14. Cookie にセッションIDをセット
+    ↓
+15. /profile にリダイレクト
 ```
 
 ### OAuth ログイン (2 回目以降)
@@ -411,6 +458,18 @@ res.cookie("sessionId", sessionId, {
 });
 ```
 
+### SQL インジェクション対策
+
+パラメータ化クエリを使用:
+
+```javascript
+// ❌ 危険
+await pool.query(`SELECT * FROM users WHERE email = '${email}'`);
+
+// ✅ 安全
+await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+```
+
 ### OAuth アクセストークン
 
 **現在の実装**: 使い捨て
@@ -429,11 +488,9 @@ const userInfo = await provider.getUserInfo(accessToken);
 
 将来 GitHub API を使う場合は、暗号化して保存する必要があります。
 
-## データベース移行の考慮事項
+## データベース実装
 
-現在はメモリ(Map)を使用していますが、以下のようにデータベースに移行可能:
-
-### PostgreSQL スキーマ例
+### PostgreSQL スキーマ
 
 ```sql
 -- Users テーブル
@@ -441,112 +498,412 @@ CREATE TABLE users (
   id VARCHAR(64) PRIMARY KEY,
   username VARCHAR(255) NOT NULL,
   email VARCHAR(255),
-  created_at TIMESTAMP NOT NULL,
-  last_login_at TIMESTAMP NOT NULL,
-  preferences JSONB,
-  profile JSONB
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_login_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  preferences JSONB DEFAULT '{}',
+  profile JSONB DEFAULT '{}'
 );
 
 -- Authentications テーブル
 CREATE TABLE authentications (
   id VARCHAR(64) PRIMARY KEY,
-  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider VARCHAR(50) NOT NULL,
   provider_id VARCHAR(255),
   email VARCHAR(255),
   password_hash VARCHAR(255),
-  created_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-  UNIQUE(provider, provider_id),
-  INDEX(user_id),
-  INDEX(provider, provider_id)
+  UNIQUE(provider, provider_id)
 );
 
--- Sessions テーブル
+-- インデックス
+CREATE INDEX idx_auth_user_id ON authentications(user_id);
+CREATE INDEX idx_auth_provider ON authentications(provider, provider_id);
+CREATE INDEX idx_auth_email ON authentications(email);
+```
+
+### コネクションプール
+
+```javascript
+// 設定
+{
+  max: 20,                    // 最大接続数
+  idleTimeoutMillis: 30000,   // アイドルタイムアウト
+  connectionTimeoutMillis: 2000 // 接続タイムアウト
+}
+```
+
+**メリット**:
+
+- 接続の再利用で高速化
+- リソースの効率的な管理
+- 複数リクエストの同時処理
+
+### トランザクション
+
+ユーザー登録時にトランザクションを使用:
+
+```javascript
+await DatabaseConnection.transaction(async (client) => {
+  // 1. ユーザー作成
+  await createUser();
+
+  // 2. 認証情報作成
+  await createAuth();
+
+  // 両方成功 → COMMIT
+  // どちらか失敗 → ROLLBACK
+});
+```
+
+**保証される整合性**:
+
+- ユーザーだけ作成されて認証情報がない状態を防ぐ
+- 認証情報だけ作成される状態を防ぐ
+- オールオアナッシング
+
+**実装の工夫**:
+
+```javascript
+// PostgreSQL使用時のみトランザクション
+if (USE_DATABASE === "true") {
+  await registerWithTransaction();
+} else {
+  // メモリはトランザクション不要
+  await registerDirect();
+}
+```
+
+### パラメータ化クエリ
+
+SQL インジェクション対策:
+
+```javascript
+// ❌ 危険
+query(`SELECT * FROM users WHERE email = '${email}'`);
+
+// ✅ 安全
+query("SELECT * FROM users WHERE email = $1", [email]);
+```
+
+### JSONB 型の活用
+
+柔軟なデータ構造:
+
+```javascript
+// preferences と profile は JSONB
+preferences: {
+  theme: 'dark',
+  language: 'ja',
+  notifications: true,
+  // 将来的に追加可能
+  customSettings: { ... }
+}
+```
+
+**メリット**:
+
+- スキーマ変更不要で項目追加可能
+- JSON 操作が高速
+- インデックス作成も可能
+
+**更新方法**:
+
+```javascript
+// 方法1: JavaScript側でマージ
+const existing = await findById(userId);
+const updated = { ...existing.preferences, ...newPreferences };
+await query("UPDATE users SET preferences = $1", [JSON.stringify(updated)]);
+
+// 方法2: PostgreSQLのJSONB演算子
+await query("UPDATE users SET preferences = preferences || $1::jsonb", [
+  JSON.stringify(newPreferences),
+]);
+```
+
+### メモリ版との比較
+
+| 項目                 | メモリ版             | PostgreSQL 版    |
+| -------------------- | -------------------- | ---------------- |
+| **速度**             | 非常に高速           | 高速             |
+| **永続性**           | なし                 | あり             |
+| **スケール**         | 単一サーバーのみ     | 複数サーバー可能 |
+| **トランザクション** | 不要                 | 対応             |
+| **本番環境**         | 不可                 | 可能             |
+| **用途**             | 開発・テスト         | 本番運用         |
+| **セットアップ**     | 不要                 | Docker 必要      |
+| **データ永続化**     | サーバー再起動で消失 | 永続化           |
+
+### 実装済みの機能
+
+- ✅ PostgreSQL スキーマ設計
+- ✅ Repository パターン実装
+- ✅ Factory パターンで切り替え
+- ✅ トランザクション対応
+- ✅ コネクションプール
+- ✅ パラメータ化クエリ
+- ✅ JSONB 型の活用
+- ✅ インデックス最適化
+- ✅ 外部キー制約
+- ✅ CASCADE 削除
+
+### 本番環境への展開
+
+**推奨構成**:
+
+1. **データベース**: Managed PostgreSQL (AWS RDS, Google Cloud SQL, Supabase 等)
+2. **アプリケーション**: Docker コンテナ
+3. **環境変数**: シークレット管理サービス使用
+
+**必要な手順**:
+
+1. DATABASE_URL を本番環境のものに変更
+2. USE_DATABASE=true に設定
+3. init.sql を実行してテーブル作成
+4. 接続プールの設定を調整(max, timeout 等)
+5. SSL 接続を有効化
+
+**環境変数の例**:
+
+```env
+# 本番環境
+DATABASE_URL=postgresql://user:pass@prod-db.example.com:5432/oauth_db?sslmode=require
+USE_DATABASE=true
+NODE_ENV=production
+```
+
+## パフォーマンス考慮事項
+
+### 現在の実装 (PostgreSQL)
+
+**長所**:
+
+- ✅ データ永続化
+- ✅ 複数サーバーで共有可能
+- ✅ トランザクション対応
+- ✅ 本番環境で使用可能
+
+**最適化のポイント**:
+
+- インデックスで検索高速化済み
+- コネクションプールで接続再利用
+- JSONB フィールドで柔軟性確保
+
+### クエリパフォーマンス
+
+**よく使うクエリ**:
+
+```sql
+-- ログイン (高速: idx_auth_email使用)
+SELECT user_id FROM authentications
+WHERE email = $1 AND provider = 'local';
+
+-- OAuth検索 (高速: idx_auth_provider使用)
+SELECT user_id FROM authentications
+WHERE provider = $1 AND provider_id = $2;
+
+-- ユーザー情報取得 (高速: PRIMARY KEY)
+SELECT * FROM users WHERE id = $1;
+
+-- 認証方法一覧 (高速: idx_auth_user_id使用)
+SELECT * FROM authentications WHERE user_id = $1;
+```
+
+### セッション管理の移行
+
+現在の SessionManager はメモリベースです。本番環境では:
+
+**オプション 1: Redis (推奨)**
+
+- 高速なインメモリストア
+- TTL で自動削除
+- 複数サーバー間でセッション共有
+- Pub/Sub 機能
+
+**オプション 2: PostgreSQL**
+
+```sql
 CREATE TABLE sessions (
   id VARCHAR(64) PRIMARY KEY,
   user_id VARCHAR(64) NOT NULL REFERENCES users(id),
   data JSONB NOT NULL,
   expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-  INDEX(user_id),
-  INDEX(expires_at)
+  INDEX idx_expires_at (expires_at)
 );
+
+-- 期限切れセッションの定期削除
+DELETE FROM sessions WHERE expires_at < NOW();
 ```
 
-### 移行手順
-
-1. Repository インターフェースを作成
-2. PostgreSQL 実装を作成
-3. 依存性注入で切り替え
-4. Map 実装と PostgreSQL 実装を並行稼働
-5. データ移行
-6. Map 実装を削除
-
-Repository パターンを採用しているため、移行は比較的容易です。
-
-## パフォーマンス考慮事項
-
-### 現在の実装 (メモリ)
-
-**長所**:
-
-- ✅ 非常に高速
-- ✅ セットアップ不要
-
-**短所**:
-
-- ❌ サーバー再起動でデータ消失
-- ❌ スケールしない
-- ❌ メモリ使用量が増加
-
-### 本番環境への移行
-
-**セッション**:
-
-- Redis への移行を推奨
-- TTL で自動削除
-
-**ユーザー/認証データ**:
-
-- PostgreSQL または MySQL
-- トランザクション対応
+**小規模アプリなら PostgreSQL で十分です。**
 
 ## 拡張ポイント
 
 将来追加可能な機能:
 
-1. **メール認証**
+### 1. メール認証
 
-   - 登録時にメール送信
-   - メールアドレスの所有確認
+```sql
+-- メール確認トークンテーブル
+CREATE TABLE email_verification_tokens (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  token VARCHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
 
-2. **アカウント連携**
+**実装内容**:
 
-   - 手動でのアカウント連携機能
-   - 連携一覧・解除機能
+- 登録時にメール送信
+- トークンで確認
+- `users.email_verified` フラグ追加
 
-3. **パスワードリセット**
+### 2. アカウント連携
 
-   - メール経由でのリセット
-   - リセットトークン管理
+**現在**: 同じメールアドレスでも別アカウント
 
-4. **Two-Factor Authentication (2FA)**
+**拡張**: ユーザーが手動で連携
 
-   - TOTP (Google Authenticator 等)
-   - バックアップコード
+```sql
+-- 既存のテーブルで対応可能
+-- 同じuser_idに複数のauthenticationsを作成
+INSERT INTO authentications (user_id, provider, provider_id)
+VALUES ('user_001', 'github', '12345');
+```
 
-5. **ソーシャルログイン追加**
+**UI 追加**:
 
-   - Twitter/X
-   - Discord
-   - Microsoft
+- プロフィールページに「アカウント連携」ボタン
+- GitHub/Google と連携
+- 連携解除機能
 
-6. **監査ログ**
-   - ログイン履歴
-   - 設定変更履歴
-   - IP アドレス記録
+### 3. パスワードリセット
+
+```sql
+-- パスワードリセットトークンテーブル
+CREATE TABLE password_reset_tokens (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  token VARCHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+**フロー**:
+
+1. メールアドレス入力
+2. トークン生成してメール送信
+3. トークンでパスワードリセット画面表示
+4. 新しいパスワード設定
+
+### 4. Two-Factor Authentication (2FA)
+
+```sql
+-- 2FA設定テーブル
+CREATE TABLE two_factor_auth (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id) UNIQUE,
+  secret VARCHAR(255) NOT NULL,
+  backup_codes JSONB,
+  enabled BOOLEAN DEFAULT false,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+**実装内容**:
+
+- TOTP (Google Authenticator 等)
+- QR コード生成
+- バックアップコード
+
+### 5. ソーシャルログイン追加
+
+既存の構造で簡単に追加可能:
+
+```javascript
+// src/auth/providers/TwitterProvider.js
+class TwitterProvider {
+  getAuthorizationUrl(state) { ... }
+  exchangeCodeForToken(code) { ... }
+  getUserInfo(accessToken) { ... }
+}
+```
+
+**追加候補**:
+
+- Twitter/X
+- Discord
+- Microsoft
+- Apple
+
+### 6. 監査ログ
+
+```sql
+-- ログインログテーブル
+CREATE TABLE login_logs (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  provider VARCHAR(50) NOT NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  success BOOLEAN NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  INDEX idx_user_id (user_id),
+  INDEX idx_created_at (created_at)
+);
+
+-- 設定変更ログテーブル
+CREATE TABLE audit_logs (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  action VARCHAR(100) NOT NULL,
+  details JSONB,
+  ip_address VARCHAR(45),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  INDEX idx_user_id (user_id),
+  INDEX idx_action (action),
+  INDEX idx_created_at (created_at)
+);
+```
+
+**記録する内容**:
+
+- ログイン成功/失敗
+- IP アドレス
+- User-Agent
+- 設定変更履歴
+
+### 7. セッションの PostgreSQL 移行
+
+現在はメモリベースですが、PostgreSQL に移行可能:
+
+```sql
+CREATE TABLE sessions (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id),
+  data JSONB NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_accessed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  INDEX idx_user_id (user_id),
+  INDEX idx_expires_at (expires_at)
+);
+```
+
+**実装**:
+
+- `SessionManager` を PostgreSQL 版に書き換え
+- 定期的に期限切れセッションを削除
+- 小規模アプリなら Redis 不要
 
 ## まとめ
 
@@ -554,7 +911,9 @@ Repository パターンを採用しているため、移行は比較的容易で
 
 - ✅ セキュアな実装
 - ✅ 拡張しやすい設計
-- ✅ データベース移行が容易
+- ✅ データベース移行が完了
+- ✅ 本番環境で使用可能
 - ✅ 学習に最適な構造
+- ✅ テスト容易性の高い設計
 
-Repository パターンと レイヤー分離により、保守性の高いコードベースを実現しています。
+Repository パターンと Factory パターンにより、保守性とテスト容易性の高いコードベースを実現しています。メモリと PostgreSQL を環境変数で簡単に切り替えられるため、開発からテスト、本番環境まで同じコードで対応できます。
