@@ -1,4 +1,5 @@
 import RepositoryFactory from './stores/RepositoryFactory.js';
+import DatabaseConnection from '../database/connection.js';
 
 /**
  * RepositoryFactory経由でRepositoryを取得
@@ -43,6 +44,14 @@ class UnifiedAuthService {
 
     console.log(`[UnifiedAuthService] Registering local user: ${email}`);
 
+    const useDatabase = process.env.USE_DATABASE === 'true';
+
+    // PostgreSQLの場合はトランザクション使用
+    if (useDatabase) {
+      return await this.registerLocalWithTransaction(email, password, username);
+    }
+
+    // メモリの場合はそのまま実行
     // 1. ユーザー作成
     const user = await this.userRepository.create({
       username: username,
@@ -55,6 +64,34 @@ class UnifiedAuthService {
 
     console.log(`[UnifiedAuthService] Local user registered: ${user.id}`);
     return this.getUserWithAuths(user.id);
+  }
+
+  /**
+   * トランザクション付きのローカル登録
+   * ユーザー作成と認証情報作成をアトミックに実行
+   */
+  async registerLocalWithTransaction(email, password, username) {
+    try {
+      const result = await DatabaseConnection.transaction(async (client) => {
+        // 1. ユーザー作成
+        const user = await this.userRepository.create({
+          username: username,
+          email: email,
+          avatarUrl: null
+        });
+
+        // 2. 認証情報作成
+        await this.authRepository.createLocal(user.id, email, password);
+
+        return user;
+      });
+
+      console.log(`[UnifiedAuthService] Local user registered with transaction: ${result.id}`);
+      return this.getUserWithAuths(result.id);
+    } catch (error) {
+      console.error('[UnifiedAuthService] Registration failed, rolled back:', error.message);
+      throw error;
+    }
   }
 
   // メール/パスワードでログイン
@@ -117,6 +154,14 @@ class UnifiedAuthService {
     // 新規ユーザー作成
     console.log(`[UnifiedAuthService] Creating new user for OAuth`);
 
+    const useDatabase = process.env.USE_DATABASE === 'true';
+
+    // PostgreSQLの場合はトランザクション使用
+    if (useDatabase) {
+      return await this.registerOAuthWithTransaction(provider, oauthUserInfo);
+    }
+
+    // メモリの場合はそのまま実行
     // 1. ユーザー作成
     const user = await this.userRepository.create({
       username: oauthUserInfo.username,
@@ -134,6 +179,38 @@ class UnifiedAuthService {
 
     console.log(`[UnifiedAuthService] OAuth user registered: ${user.id}`);
     return this.getUserWithAuths(user.id);
+  }
+
+  /**
+   * トランザクション付きのOAuth登録
+   */
+  async registerOAuthWithTransaction(provider, oauthUserInfo) {
+    try {
+      const result = await DatabaseConnection.transaction(async (client) => {
+        // 1. ユーザー作成
+        const user = await this.userRepository.create({
+          username: oauthUserInfo.username,
+          email: oauthUserInfo.email,
+          avatarUrl: oauthUserInfo.avatarUrl
+        });
+
+        // 2. OAuth認証情報作成
+        await this.authRepository.createOAuth(
+          user.id,
+          provider,
+          oauthUserInfo.providerId,
+          oauthUserInfo.email
+        );
+
+        return user;
+      });
+
+      console.log(`[UnifiedAuthService] OAuth user registered with transaction: ${result.id}`);
+      return this.getUserWithAuths(result.id);
+    } catch (error) {
+      console.error('[UnifiedAuthService] OAuth registration failed, rolled back:', error.message);
+      throw error;
+    }
   }
 
   // ===== ユーザー情報取得 =====

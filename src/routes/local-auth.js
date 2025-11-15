@@ -6,6 +6,8 @@ const router = express.Router();
 
 // ===== サインアップページ表示 =====
 router.get('/signup', (req, res) => {
+  const error = req.query.error;
+
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
   const session = sessionId ? SessionManager.get(sessionId) : null;
@@ -24,11 +26,11 @@ router.get('/signup', (req, res) => {
           body {
             font-family: sans-serif;
             max-width: 400px;
-            margin: 50px auto;
+            margin: 100px auto;
             padding: 20px;
           }
           .form-group {
-            margin-bottom: 15px;
+            margin: 15px 0;
           }
           label {
             display: block;
@@ -45,44 +47,56 @@ router.get('/signup', (req, res) => {
           button {
             width: 100%;
             padding: 10px;
-            background: #28a745;
+            background: #0366d6;
             color: white;
             border: none;
             border-radius: 4px;
-            font-size: 16px;
             cursor: pointer;
+            font-size: 16px;
           }
           button:hover {
-            background: #218838;
+            background: #0256c4;
           }
-          .link {
+          .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+          }
+          .links {
+            margin-top: 20px;
             text-align: center;
-            margin-top: 15px;
           }
         </style>
       </head>
       <body>
         <h1>Sign Up</h1>
+        
+        ${error ? `<div class="error">${decodeURIComponent(error)}</div>` : ''}
+        
         <form method="POST" action="/local/signup">
           <div class="form-group">
             <label>Username:</label>
             <input type="text" name="username" required />
           </div>
+          
           <div class="form-group">
             <label>Email:</label>
             <input type="email" name="email" required />
           </div>
+          
           <div class="form-group">
             <label>Password:</label>
-            <input type="password" name="password" minlength="6" required />
+            <input type="password" name="password" required minlength="6" />
           </div>
+          
           <button type="submit">Sign Up</button>
         </form>
-        <div class="link">
-          Already have an account? <a href="/local/signin">Sign In</a>
-        </div>
-      <div class="link">
-        <a href="/">← Back to Home</a>
+        
+        <div class="links">
+          <p>Already have an account? <a href="/local/signin">Sign In</a></p>
+          <p><a href="/">← Back to Home</a></p>
       </div>
       </body>
     </html>
@@ -132,17 +146,25 @@ router.post('/signup', async (req, res) => {
 
     res.redirect('/profile');
   } catch (error) {
-    console.error('Sign up error:', error.message);
-    res.status(400).send(`
-      <h1>Sign Up Failed</h1>
-      <p>${error.message}</p>
-      <a href="/local/signup">Try Again</a>
-    `);
+    console.error('Signup error:', error);
+    
+    // エラーメッセージを分かりやすく
+    let errorMessage = error.message;
+    
+    if (error.message.includes('already registered') || error.message.includes('already exists')) {
+      errorMessage = 'This email is already registered. Please sign in instead.';
+    } else if (error.message.includes('duplicate key')) {
+      errorMessage = 'This email is already registered.';
+    }
+    
+    res.redirect(`/local/signup?error=${encodeURIComponent(errorMessage)}`);
   }
 });
 
 // ===== サインインページ表示 =====
 router.get('/signin', (req, res) => {
+  const error = req.query.error;
+
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
   const session = sessionId ? SessionManager.get(sessionId) : null;
@@ -161,11 +183,11 @@ router.get('/signin', (req, res) => {
           body {
             font-family: sans-serif;
             max-width: 400px;
-            margin: 50px auto;
+            margin: 100px auto;
             padding: 20px;
           }
           .form-group {
-            margin-bottom: 15px;
+            margin: 15px 0;
           }
           label {
             display: block;
@@ -186,36 +208,47 @@ router.get('/signin', (req, res) => {
             color: white;
             border: none;
             border-radius: 4px;
-            font-size: 16px;
             cursor: pointer;
+            font-size: 16px;
           }
           button:hover {
             background: #0256c4;
           }
-          .link {
+          .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+          }
+          .links {
+            margin-top: 20px;
             text-align: center;
-            margin-top: 15px;
           }
         </style>
       </head>
       <body>
         <h1>Sign In</h1>
+        
+        ${error ? `<div class="error">${decodeURIComponent(error)}</div>` : ''}
+        
         <form method="POST" action="/local/signin">
           <div class="form-group">
             <label>Email:</label>
             <input type="email" name="email" required />
           </div>
+          
           <div class="form-group">
             <label>Password:</label>
             <input type="password" name="password" required />
           </div>
+          
           <button type="submit">Sign In</button>
         </form>
-        <div class="link">
-          Don't have an account? <a href="/local/signup">Sign Up</a>
-        </div>
-      <div class="link">
-        <a href="/">← Back to Home</a>
+        
+        <div class="links">
+          <p>Don't have an account? <a href="/local/signup">Sign Up</a></p>
+          <p><a href="/">← Back to Home</a></p>
       </div>
       </body>
     </html>
@@ -264,12 +297,8 @@ router.post('/signin', async (req, res) => {
 
     res.redirect('/profile');
   } catch (error) {
-    console.error('Sign in error:', error.message);
-    res.status(401).send(`
-      <h1>Sign In Failed</h1>
-      <p>${error.message}</p>
-      <a href="/local/signin">Try Again</a>
-    `);
+    console.error('Signin error:', error);
+    res.redirect(`/local/signin?error=${encodeURIComponent(error.message)}`);
   }
 });
 

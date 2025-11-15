@@ -6,6 +6,7 @@ import UnifiedAuthService from './src/auth/UnifiedAuthService.js';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
 import GoogleProvider from './src/auth/providers/GoogleProvider.js';
+import RepositoryFactory from './src/auth/stores/RepositoryFactory.js';
 import authRoutes from './src/routes/auth.js';
 import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
@@ -163,75 +164,6 @@ app.get('/', (req, res) => {
     `);
 });
 
-if (NODE_ENV === 'development' && USE_DATABASE) {
-  app.get('/debug/db', async (req, res) => {
-    try {
-      // テーブル一覧
-      const tables = await DatabaseConnection.query(`
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-      `);
-
-      // users テーブルの件数
-      const userCount = await DatabaseConnection.query(
-        'SELECT COUNT(*) as count FROM users'
-      );
-
-      // authentications テーブルの件数
-      const authCount = await DatabaseConnection.query(
-        'SELECT COUNT(*) as count FROM authentications'
-      );
-
-      res.json({
-        status: 'connected',
-        tables: tables.rows,
-        counts: {
-          users: userCount.rows[0].count,
-          authentications: authCount.rows[0].count
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  app.get('/debug/repositories', async (req, res) => {
-    try {      
-      const { default: PostgresUserRepository } = await import('./src/auth/stores/postgres/PostgresUserRepository.js');
-      const { default: PostgresAuthRepository } = await import('./src/auth/stores/postgres/PostgresAuthRepository.js');
-      
-      const userRepo = new PostgresUserRepository();
-      const authRepo = new PostgresAuthRepository();
-
-      // テストユーザー作成
-      const user = await userRepo.create({
-        username: 'testuser',
-        email: 'test@example.com',
-        avatarUrl: null
-      });
-
-      // 認証情報作成
-      const authId = await authRepo.createLocal(user.id, 'test@example.com', 'password123');
-
-      // 取得テスト
-      const foundUser = await userRepo.findById(user.id);
-      const auths = await authRepo.findAuthsByUserId(user.id);
-
-      // パスワード検証テスト
-      const verifiedUserId = await authRepo.verifyLocalPassword('test@example.com', 'password123');
-
-      res.json({
-        status: 'success',
-        created: { user, authId },
-        found: { user: foundUser, auths },
-        verified: verifiedUserId === user.id
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-}
-
 app.use('/auth', authRoutes);
 app.use('/local', localAuthRoutes);
 app.use('/', protectedRoutes);
@@ -261,3 +193,109 @@ process.on('SIGINT', async () => {
   }
   process.exit(0);
 });
+
+if (NODE_ENV === 'development') {
+  // ストレージ状態の確認
+  app.get('/debug', async (req, res) => {
+    try {
+      const storageType = RepositoryFactory.getStorageType();
+
+      if (USE_DATABASE) {
+        // PostgreSQL: テーブル情報
+        const tables = await DatabaseConnection.query(`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+        `);
+
+        const userCount = await DatabaseConnection.query(
+          'SELECT COUNT(*) as count FROM users'
+        );
+
+        const authCount = await DatabaseConnection.query(
+          'SELECT COUNT(*) as count FROM authentications'
+        );
+
+        res.json({
+          storage: storageType,
+          database: {
+            connected: true,
+            tables: tables.rows.map(r => r.table_name),
+            counts: {
+              users: userCount.rows[0].count,
+              authentications: authCount.rows[0].count
+            }
+          }
+        });
+      } else {
+        // メモリ: Repository の debug() を使用
+        const userRepo = await RepositoryFactory.getUserRepository();
+        const authRepo = await RepositoryFactory.getAuthRepository();
+
+        // コンソールに出力
+        console.log('\n===== DEBUG INFO =====');
+        userRepo.debug();
+        authRepo.debug();
+        console.log('======================\n');
+
+        res.json({
+          storage: storageType,
+          message: 'Debug info logged to console'
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // データベースのリセット(PostgreSQL のみ)
+  app.post('/debug/reset', async (req, res) => {
+    if (!USE_DATABASE) {
+      return res.status(400).json({ error: 'Only available for database mode' });
+    }
+
+    try {
+      await DatabaseConnection.query('TRUNCATE users RESTART IDENTITY CASCADE');
+      await DatabaseConnection.query('TRUNCATE authentications RESTART IDENTITY CASCADE');
+
+      console.log('[Debug] Database reset completed');
+
+      res.json({
+        success: true,
+        message: 'Database reset completed'
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // サンプルデータの作成(テスト用)
+  app.post('/debug/seed', async (req, res) => {
+    try {
+      await UnifiedAuthService.ensureInitialized();
+
+      // サンプルユーザー1: ローカル認証
+      const user1 = await UnifiedAuthService.registerLocal(
+        'alice@example.com',
+        'password123',
+        'alice'
+      );
+
+      // サンプルユーザー2: ローカル認証
+      const user2 = await UnifiedAuthService.registerLocal(
+        'bob@example.com',
+        'password456',
+        'bob'
+      );
+
+      console.log('[Debug] Sample data created');
+
+      res.json({
+        success: true,
+        users: [user1, user2]
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+}
