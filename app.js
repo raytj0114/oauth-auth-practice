@@ -2,6 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import DatabaseConnection from './src/database/connection.js';
+import UnifiedAuthService from './src/auth/UnifiedAuthService.js';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
 import GoogleProvider from './src/auth/providers/GoogleProvider.js';
@@ -23,7 +24,7 @@ if (USE_DATABASE) {
   DatabaseConnection.initialize();
 
   // 接続テスト
-  DatabaseConnection.testConnection()
+  await DatabaseConnection.testConnection()
     .then(success => {
       if (!success) {
         console.log('[App] Database connection failed. Exiting...');
@@ -33,6 +34,9 @@ if (USE_DATABASE) {
 } else {
   console.log('[App] Using in-memory storage');
 }
+
+// UnifiedAuthService 初期化
+await UnifiedAuthService.initialize();
 
 // ミドルウェア
 app.use(express.json());
