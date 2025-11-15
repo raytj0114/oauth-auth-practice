@@ -7,9 +7,9 @@ const router = express.Router();
 
 // 保護されたルート
 // プロフィール表示
-router.get('/profile', requireAuth, (req, res) => {
+router.get('/profile', requireAuth, async (req, res) => {
   // 常に最新のユーザー情報を取得
-  const user = UnifiedAuthService.getUserWithAuths(req.user.id);
+  const user = await UnifiedAuthService.getUserWithAuths(req.user.id);
 
   if (!user) {
     return res.status(404).send(`
@@ -81,14 +81,6 @@ router.get('/profile', requireAuth, (req, res) => {
            border-radius: 5px;
            overflow-x: auto;
             font-size: 12px;
-          }
-          .success-message {
-            padding: 10px;
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            border-radius: 4px;
-            margin-bottom: 15px;
            }
         </style>
       </head>
@@ -166,14 +158,14 @@ router.get('/profile', requireAuth, (req, res) => {
 });
 
 // 設定更新
-router.post('/profile/preferences', requireAuth, (req, res) => {
+router.post('/profile/preferences', requireAuth, async (req, res) => {
   const { theme } = req.body;
 
   try {
     console.log(`[Profile] Updating theme to: ${theme} for user: ${req.user.id}`);
     
     // UserRepository を更新
-    const updatedUser = UnifiedAuthService.updatePreferences(req.user.id, { theme });
+    const updatedUser = await UnifiedAuthService.updatePreferences(req.user.id, { theme });
     
     // セッションも更新(オプション)
     const sessionId = req.cookies.sessionId;
