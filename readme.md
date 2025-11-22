@@ -7,10 +7,12 @@ OAuth 2.0 とメール/パスワード認証の実装練習プロジェクト
 - ✅ メール/パスワード認証
 - ✅ GitHub OAuth
 - ✅ Google OAuth
-- ✅ セッション管理
+- ✅ セッション管理 (PostgreSQL)
 - ✅ ユーザープロフィール
 - ✅ 設定管理
 - ✅ PostgreSQL データベース
+- ✅ EJS テンプレートエンジン
+- ✅ レスポンシブデザイン
 
 ## ドキュメント
 
@@ -115,10 +117,12 @@ src/
 │   ├── stores/
 │   │   ├── UserRepository.js              # メモリ版 UserRepository
 │   │   ├── AuthRepository.js              # メモリ版 AuthRepository
+│   │   ├── MemorySessionRepository.js     # メモリ版 SessionRepository
 │   │   ├── RepositoryFactory.js           # Repository 切り替え
 │   │   └── postgres/
-│   │       ├── PostgresUserRepository.js  # PostgreSQL版 UserRepository
-│   │       └── PostgresAuthRepository.js  # PostgreSQL版 AuthRepository
+│   │       ├── PostgresUserRepository.js      # PostgreSQL版 UserRepository
+│   │       ├── PostgresAuthRepository.js      # PostgreSQL版 AuthRepository
+│   │       └── PostgresSessionRepository.js   # PostgreSQL版 SessionRepository
 │   ├── providers/
 │   │   ├── GitHubProvider.js              # GitHub OAuth
 │   │   └── GoogleProvider.js              # Google OAuth
@@ -128,16 +132,36 @@ src/
 ├── database/
 │   └── connection.js                      # PostgreSQL 接続プール
 ├── middleware/
-│   └── auth.js                            # 認証ミドルウェア
+│   ├── auth.js                            # 認証ミドルウェア
+│   └── viewHelpers.js                     # ビューヘルパー
 └── routes/
     ├── auth.js                            # OAuth ルート
     ├── local-auth.js                      # メール/パスワード ルート
     └── protected.js                       # 保護されたルート
+
+views/
+├── layouts/
+│   └── main.ejs                           # 共通レイアウト
+├── partials/
+│   ├── header.ejs                         # ヘッダー
+│   └── footer.ejs                         # フッター
+├── auth/
+│   ├── signin.ejs                         # サインインページ
+│   └── signup.ejs                         # サインアップページ
+├── home.ejs                               # ホームページ
+├── profile.ejs                            # プロフィールページ
+└── error.ejs                              # エラーページ
+
+public/
+├── css/
+│   └── style.css                          # スタイルシート
+└── js/
+    └── main.js                            # クライアント側 JavaScript
 ```
 
 ## アーキテクチャ
 
-このプロジェクトは**Repository パターン**と**Factory パターン**を採用しています。
+このプロジェクトは**Repository パターン**、**Factory パターン**、**MVC パターン**を採用しています。
 
 ### データ層の分離
 
@@ -148,6 +172,10 @@ src/
          ↕ userId
 ┌─────────────────────┐
 │  AuthRepository     │  ← 認証情報(パスワード、OAuth連携)
+└─────────────────────┘
+         ↕ userId
+┌─────────────────────┐
+│  SessionRepository  │  ← セッション情報
 └─────────────────────┘
 ```
 
@@ -162,7 +190,52 @@ USE_DATABASE=false → Memory Repository
 
 環境変数を変更するだけで、メモリとデータベースを簡単に切り替えられます。
 
+### MVC パターン
+```
+View (EJS)
+   ↓
+Controller (Routes)
+   ↓
+Service (UnifiedAuthService)
+   ↓
+Repository (Data Access)
+   ↓
+Model (PostgreSQL / Memory)
+```
+
 詳細は [ARCHITECTURE.md](./ARCHITECTURE.md) を参照してください。
+
+## UI/UX
+
+### デザインシステム
+
+- **CSS Variables**: 一貫したカラーパレット
+- **レスポンシブデザイン**: モバイルファーストアプローチ
+- **アニメーション**: スムーズなトランジション
+- **アクセシビリティ**: セマンティック HTML、適切なコントラスト
+
+### ページ一覧
+
+1. **ホームページ** (`/`)
+   - OAuth ログインボタン
+   - メール/パスワードログインリンク
+   - ログイン状態の表示
+
+2. **サインアップ** (`/local/signup`)
+   - ユーザー名、メール、パスワード入力
+   - クライアント側バリデーション
+   - OAuth オプション
+
+3. **サインイン** (`/local/signin`)
+   - メール、パスワード入力
+   - エラーメッセージ表示
+   - OAuth オプション
+
+4. **プロフィール** (`/profile`)
+   - ユーザー情報表示
+   - リンクされたアカウント
+   - 設定変更フォーム
+   - ログアウト
 
 ## 認証パターン
 
@@ -195,9 +268,6 @@ npm run dev
 
 # 本番モード
 npm start
-
-# デバッグモード
-npm run debug
 ```
 
 ### デバッグエンドポイント(開発環境のみ)
@@ -228,9 +298,13 @@ SELECT * FROM users;
 # 認証情報確認
 SELECT * FROM authentications;
 
+# セッション確認
+SELECT * FROM sessions;
+
 # テーブル削除(開発用)
 TRUNCATE users RESTART IDENTITY CASCADE;
 TRUNCATE authentications RESTART IDENTITY CASCADE;
+TRUNCATE sessions RESTART IDENTITY CASCADE;
 
 # 終了
 \q
@@ -240,11 +314,13 @@ TRUNCATE authentications RESTART IDENTITY CASCADE;
 
 - ✅ パスワードは bcrypt でハッシュ化(saltRounds=10)
 - ✅ セッションは HttpOnly Cookie
+- ✅ セッションは PostgreSQL に永続化
 - ✅ CSRF 対策(State パラメータ)
 - ✅ パラメータ化クエリ(SQL インジェクション対策)
 - ✅ トランザクションでデータ整合性を保証
 - ✅ パスワードハッシュは外部に公開しない
 - ✅ OAuth アクセストークンは使い捨て(保存しない)
+- ✅ XSS 対策(EJS の自動エスケープ)
 
 ## データベース
 
@@ -256,6 +332,7 @@ TRUNCATE authentications RESTART IDENTITY CASCADE;
 - トランザクション対応
 - JSONB 型でフレキシブルなデータ構造
 - インデックスで高速検索
+- セッション永続化
 
 ### メモリ (開発・テスト用)
 
@@ -273,18 +350,43 @@ USE_DATABASE=true   # PostgreSQL
 USE_DATABASE=false  # メモリ
 ```
 
+## テンプレートエンジン
+
+### EJS の特徴
+
+- **シンプル**: JavaScript の構文をそのまま使える
+- **パーシャル**: 再利用可能なコンポーネント
+- **レイアウト**: 共通レイアウトの継承
+- **自動エスケープ**: XSS 対策
+
+### テンプレートの構造
+```
+layouts/main.ejs       ← 共通レイアウト
+   ↓ include
+partials/header.ejs    ← ヘッダー
+partials/footer.ejs    ← フッター
+   ↓ body
+home.ejs              ← 各ページ
+profile.ejs
+auth/signin.ejs
+```
+
 ## 学習ポイント
 
 このプロジェクトで学べること:
 
 1. OAuth 2.0 認可コードフロー
 2. パスワード認証とハッシュ化
-3. セッション管理
+3. セッション管理 (PostgreSQL)
 4. Repository パターン
 5. Factory パターン
-6. データ層とビジネスロジック層の分離
-7. PostgreSQL とトランザクション
-8. Docker でのデータベース管理
+6. MVC パターン
+7. データ層とビジネスロジック層の分離
+8. PostgreSQL とトランザクション
+9. Docker でのデータベース管理
+10. EJS テンプレートエンジン
+11. レスポンシブ Web デザイン
+12. クライアント側バリデーション
 
 ## トラブルシューティング
 
@@ -319,4 +421,13 @@ cat .env | grep USE_DATABASE
 # サーバーログを確認
 # [RepositoryFactory] Using PostgresUserRepository
 # が表示されているか確認
+```
+
+### CSS が反映されない
+```bash
+# ブラウザのキャッシュをクリア
+# Chrome: Ctrl+Shift+R (Windows) / Cmd+Shift+R (Mac)
+
+# サーバーを再起動
+# Ctrl+C で停止後、npm run dev
 ```
