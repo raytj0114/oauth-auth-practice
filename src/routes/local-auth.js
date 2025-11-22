@@ -6,8 +6,6 @@ const router = express.Router();
 
 // ===== サインアップページ表示 =====
 router.get('/signup', async (req, res) => {
-  const error = req.query.error;
-
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
   const session = sessionId ? await SessionManager.get(sessionId) : null;
@@ -17,90 +15,10 @@ router.get('/signup', async (req, res) => {
     return res.redirect('/profile');
   }
 
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Sign Up</title>
-        <style>
-          body {
-            font-family: sans-serif;
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-          }
-          .form-group {
-            margin: 15px 0;
-          }
-          label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-          }
-          input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-          }
-          button {
-            width: 100%;
-            padding: 10px;
-            background: #0366d6;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-          }
-          button:hover {
-            background: #0256c4;
-          }
-          .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-          }
-          .links {
-            margin-top: 20px;
-            text-align: center;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Sign Up</h1>
-        
-        ${error ? `<div class="error">${decodeURIComponent(error)}</div>` : ''}
-        
-        <form method="POST" action="/local/signup">
-          <div class="form-group">
-            <label>Username:</label>
-            <input type="text" name="username" required />
-          </div>
-          
-          <div class="form-group">
-            <label>Email:</label>
-            <input type="email" name="email" required />
-          </div>
-          
-          <div class="form-group">
-            <label>Password:</label>
-            <input type="password" name="password" required minlength="6" />
-          </div>
-          
-          <button type="submit">Sign Up</button>
-        </form>
-        
-        <div class="links">
-          <p>Already have an account? <a href="/local/signin">Sign In</a></p>
-          <p><a href="/">← Back to Home</a></p>
-      </div>
-      </body>
-    </html>
-  `);
+  res.render('auth/signup', {
+    title: 'Sign Up',
+    error: req.query.error || null
+  });
 });
 
 // ===== サインアップ処理 =====
@@ -115,6 +33,10 @@ router.post('/signup', async (req, res) => {
     // 入力チェック
     if (!username || !email || !password) {
       throw new Error('All fields are required');
+    }
+
+    if (username.length < 3) {
+      throw new Error('Username must be at least 3 characters');
     }
 
     if (password.length < 6) {
@@ -156,8 +78,6 @@ router.post('/signup', async (req, res) => {
 
 // ===== サインインページ表示 =====
 router.get('/signin', async (req, res) => {
-  const error = req.query.error;
-
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
   const session = sessionId ? await SessionManager.get(sessionId) : null;
@@ -167,85 +87,10 @@ router.get('/signin', async (req, res) => {
     return res.redirect('/profile');
   }
   
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Sign In</title>
-        <style>
-          body {
-            font-family: sans-serif;
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-          }
-          .form-group {
-            margin: 15px 0;
-          }
-          label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-          }
-          input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-          }
-          button {
-            width: 100%;
-            padding: 10px;
-            background: #0366d6;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-          }
-          button:hover {
-            background: #0256c4;
-          }
-          .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-          }
-          .links {
-            margin-top: 20px;
-            text-align: center;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Sign In</h1>
-        
-        ${error ? `<div class="error">${decodeURIComponent(error)}</div>` : ''}
-        
-        <form method="POST" action="/local/signin">
-          <div class="form-group">
-            <label>Email:</label>
-            <input type="email" name="email" required />
-          </div>
-          
-          <div class="form-group">
-            <label>Password:</label>
-            <input type="password" name="password" required />
-          </div>
-          
-          <button type="submit">Sign In</button>
-        </form>
-        
-        <div class="links">
-          <p>Don't have an account? <a href="/local/signup">Sign Up</a></p>
-          <p><a href="/">← Back to Home</a></p>
-      </div>
-      </body>
-    </html>
-  `);
+  res.render('auth/signin', {
+    title: 'Sign In',
+    error: req.query.error || null
+  });
 });
 
 // ===== サインイン処理 =====

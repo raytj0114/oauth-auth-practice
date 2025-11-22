@@ -1,0 +1,761 @@
+/* ===== Reset ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===== CSS Variables ===== */
+:root {
+  --primary-color: #0366d6;
+  --primary-hover: #0256c4;
+  --danger-color: #dc3545;
+  --danger-hover: #c82333;
+  --success-color: #28a745;
+  --text-color: #24292e;
+  --text-secondary: #586069;
+  --border-color: #e1e4e8;
+  --bg-light: #f6f8fa;
+  --bg-white: #ffffff;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Base Styles ===== */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica",
+    "Arial", sans-serif;
+  color: var(--text-color);
+  line-height: 1.6;
+  background: var(--bg-light);
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ===== Layout ===== */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ===== Header ===== */
+.header {
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.logo:hover {
+  text-decoration: none;
+  color: var(--primary-color);
+}
+
+.nav-links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.nav-links a {
+  color: var(--text-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.nav-links a:hover {
+  background: var(--bg-light);
+  text-decoration: none;
+}
+
+/* ===== Footer ===== */
+.footer {
+  background: var(--bg-white);
+  border-top: 1px solid var(--border-color);
+  padding: 2rem 0;
+  margin-top: 4rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* ===== Cards ===== */
+.card {
+  background: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card h1,
+.card h2 {
+  margin-bottom: 20px;
+}
+
+/* ===== Sections ===== */
+.section {
+  margin: 30px 0;
+}
+
+.section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.section h3 {
+  font-size: 1.2rem;
+  margin: 15px 0 10px;
+}
+
+/* ===== Info Rows ===== */
+.info-row {
+  padding: 12px;
+  margin: 8px 0;
+  background: var(--bg-light);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.info-row strong {
+  display: inline-block;
+  min-width: 150px;
+  color: var(--text-secondary);
+}
+
+/* ===== Linked Accounts ===== */
+.linked-account {
+  padding: 15px;
+  margin: 10px 0;
+  background: var(--bg-light);
+  border-radius: 6px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.linked-account strong {
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.linked-account small {
+  color: var(--text-secondary);
+}
+
+/* ===== Forms ===== */
+.form-group {
+  margin: 20px 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+/* ===== Buttons ===== */
+button,
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+button:hover,
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
+  text-decoration: none;
+}
+
+button:active,
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: var(--danger-hover);
+}
+
+.btn-link {
+  background: transparent;
+  color: var(--primary-color);
+  padding: 8px 12px;
+}
+
+.btn-link:hover {
+  background: var(--bg-light);
+}
+
+/* OAuth Buttons */
+.oauth-buttons {
+  margin: 30px 0;
+}
+
+.btn-github,
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 20px;
+  margin: 10px 0;
+  border: 1px solid var(--border-color);
+  background: white;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.btn-github:hover,
+.btn-google:hover {
+  background: var(--bg-light);
+}
+
+.btn-github img,
+.btn-google img {
+  width: 20px;
+  height: 20px;
+}
+
+/* ===== Messages ===== */
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #f5c6cb;
+  margin-bottom: 20px;
+}
+
+.success {
+  background: #d4edda;
+  color: #155724;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #c3e6cb;
+  margin-bottom: 20px;
+}
+
+.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid #bee5eb;
+  margin-bottom: 20px;
+}
+
+/* ===== Code Blocks ===== */
+pre {
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+}
+
+code {
+  background: #f6f8fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 13px;
+}
+
+/* ===== Auth Container ===== */
+.auth-container {
+  max-width: 450px;
+  margin: 60px auto;
+}
+
+.auth-form {
+  background: var(--bg-white);
+  padding: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+}
+
+.auth-form h1 {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* ===== Links ===== */
+.links {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.links p {
+  margin: 10px 0;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  main {
+    padding: 20px 10px;
+  }
+
+  .nav {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .nav-links {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .auth-container {
+    margin: 20px auto;
+  }
+
+  .info-row strong {
+    display: block;
+    margin-bottom: 5px;
+  }
+}
+
+/* ===== Utilities ===== */
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.mt-1 {
+  margin-top: 0.5rem;
+}
+.mt-2 {
+  margin-top: 1rem;
+}
+.mt-3 {
+  margin-top: 1.5rem;
+}
+.mt-4 {
+  margin-top: 2rem;
+}
+
+.mb-1 {
+  margin-bottom: 0.5rem;
+}
+.mb-2 {
+  margin-bottom: 1rem;
+}
+.mb-3 {
+  margin-bottom: 1.5rem;
+}
+.mb-4 {
+  margin-bottom: 2rem;
+}
+
+/* ===== Home Page Specific ===== */
+.env-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-size: 12px;
+  margin: 10px 0;
+  font-weight: 600;
+}
+
+.section {
+  background: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: var(--shadow);
+}
+
+.section h2 {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+/* ===== Navigation Button Styles ===== */
+.nav-links form {
+  margin: 0;
+}
+
+.nav-links button[type="submit"] {
+  background: transparent;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.nav-links button[type="submit"]:hover {
+  background: var(--bg-light);
+  text-decoration: none;
+}
+
+/* ===== User Info Card ===== */
+.user-info-card {
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.user-info-card p {
+  margin: 10px 0;
+}
+
+.user-info-card strong {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
+/* ===== Form Helpers ===== */
+.form-group small {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ===== Auth Form Improvements ===== */
+.auth-form form {
+  margin-bottom: 20px;
+}
+
+.auth-form input::placeholder {
+  color: #999;
+}
+
+.auth-form .oauth-buttons {
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+/* ===== OAuth Button Improvements ===== */
+.btn-github,
+.btn-google {
+  transition: all 0.2s;
+  font-size: 15px;
+}
+
+.btn-github:hover,
+.btn-google:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ===== Links Styling ===== */
+.links {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.links p {
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.links a {
+  font-weight: 600;
+}
+
+/* ===== Form Focus Animations ===== */
+.form-group.focused label {
+  color: var(--primary-color);
+}
+
+.form-group.focused input {
+  border-color: var(--primary-color);
+}
+
+/* ===== Button Loading State (将来の拡張用) ===== */
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button[disabled]:hover {
+  transform: none;
+}
+
+/* ===== Smooth Transitions ===== */
+input, button, .btn {
+  transition: all 0.2s ease;
+}
+
+/* ===== Error Animation ===== */
+.error {
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== Success Animation (将来の拡張用) ===== */
+.success {
+  animation: slideDown 0.3s ease;
+}
+
+/* ===== Profile Page Specific ===== */
+.profile-card {
+  max-width: 800px;
+  margin: 50px auto;
+  background: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: var(--shadow);
+}
+
+.profile-card h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: var(--text-color);
+}
+
+.profile-card > img {
+  display: block;
+  margin: 0 auto 20px;
+  border: 3px solid var(--border-color);
+}
+
+/* ===== Profile Sections ===== */
+.profile-card .section {
+  margin: 30px 0;
+  padding: 20px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.profile-card .section h2 {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-color);
+}
+
+/* ===== Info Rows (Profile specific) ===== */
+.profile-card .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin: 8px 0;
+  background: var(--bg-white);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.profile-card .info-row strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 150px;
+}
+
+.profile-card .info-row span {
+  color: var(--text-color);
+}
+
+/* ===== Preference Value Badge ===== */
+.preference-value {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--primary-color);
+  color: white !important;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== Preference Form ===== */
+.preference-form {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--bg-white);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.preference-form .form-group {
+  margin-bottom: 15px;
+}
+
+.preference-form select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-white);
+  cursor: pointer;
+}
+
+.preference-form select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+/* ===== Linked Accounts ===== */
+.linked-account {
+  padding: 15px;
+  margin: 10px 0;
+  background: var(--bg-white);
+  border-radius: 6px;
+  border-left: 4px solid var(--primary-color);
+  transition: transform 0.2s;
+}
+
+.linked-account:hover {
+  transform: translateX(5px);
+}
+
+.linked-account strong {
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.linked-account small {
+  color: var(--text-secondary);
+}
+
+/* ===== Actions Section ===== */
+.profile-card .section:last-child {
+  text-align: center;
+  background: transparent;
+  border: none;
+  padding: 20px 0;
+}
+
+/* ===== Debug Section ===== */
+.profile-card pre {
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ===== Responsive Profile ===== */
+@media (max-width: 768px) {
+  .profile-card {
+    margin: 20px auto;
+    padding: 20px;
+  }
+
+  .profile-card .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-card .info-row strong {
+    margin-bottom: 5px;
+  }
+
+  .profile-card .section:last-child form,
+  .profile-card .section:last-child a {
+    display: block;
+    margin: 10px 0;
+  }
+}

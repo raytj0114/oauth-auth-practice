@@ -1,6 +1,8 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import DatabaseConnection from './src/database/connection.js';
 import UnifiedAuthService from './src/auth/UnifiedAuthService.js';
 import SessionManager from './src/auth/SessionManager.js';
@@ -11,8 +13,13 @@ import RepositoryFactory from './src/auth/stores/RepositoryFactory.js';
 import authRoutes from './src/routes/auth.js';
 import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
+import { viewHelpers } from './src/middleware/viewHelpers.js';
 
 dotenv.config();
+
+// ESM で __dirname を取得
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -21,6 +28,26 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const USE_DATABASE = process.env.USE_DATABASE === 'true';
 
+// ===== View Engine 設定 =====
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// ===== 静的ファイル =====
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ===== ミドルウェア =====
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(viewHelpers);
+
+// リクエストログ
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// データベース初期化
 if (USE_DATABASE) {
   console.log('[App] Using PostgreSQL database');
   DatabaseConnection.initialize();
@@ -29,7 +56,7 @@ if (USE_DATABASE) {
   await DatabaseConnection.testConnection()
     .then(success => {
       if (!success) {
-        console.log('[App] Database connection failed. Exiting...');
+        console.error('[App] Database connection failed. Exiting...');
         process.exit(1);
       }
     });
@@ -37,22 +64,9 @@ if (USE_DATABASE) {
   console.log('[App] Using in-memory storage');
 }
 
-// UnifiedAuthService 初期化
+// サービス初期化
 await UnifiedAuthService.initialize();
-
-// SessionManager 初期化
 await SessionManager.initialize();
-
-// ミドルウェア
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
-// リクエストログ
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
 
 // OAuth プロバイダー登録(環境変数から設定を渡す)
 AuthManager.registerProvider('github', new GitHubProvider({
@@ -67,137 +81,32 @@ AuthManager.registerProvider('google', new GoogleProvider({
   redirectUri: process.env.GOOGLE_REDIRECT_URI
 }));
 
-// ルート
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <title>OAuth Practice</title>
-      <style>
-        body {
-          font-family: sans-serif;
-          max-width: 600px;
-          margin: 50px auto;
-          padding: 20px;
-          text-align: center;
-        }
-        h1 {
-          color: #333;
-        }
-        .section {
-          margin: 30px 0;
-          padding: 20px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          background: #f9f9f9;
-        }
-        .section h2 {
-          margin-top: 0;
-          font-size: 20px;
-        }
-        .btn {
-          display: block;
-          margin: 10px 0;
-          padding: 12px;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-          font-size: 16px;
-          transition: opacity 0.3s;
-        }
-        .btn:hover {
-          opacity: 0.8;
-        }
-        .btn-github {
-          background: #0366d6;
-        }
-        .btn-google {
-          background: #db4437;
-        }
-        .btn-signup {
-          background: #28a745;
-        }
-        .btn-signin {
-          background: #007bff;
-        }
-        .btn-profile {
-          background: #6c757d;
-        }
-        .env-badge {
-          display: inline-block;
-          padding: 5px 10px;
-          background: ${NODE_ENV === 'production' ? '#28a745' : '#ffc107'};
-          color: ${NODE_ENV ===  'production' ? 'white' : '#black'}
-          border-radius: 3px;
-          font-size: 12px;
-          margin-top: 10px;
-        }
-      </style>
-      <body>
-        <h1>🔐 OAuth 2.0 Practice</h1>
-        <p>GitHub OAuth 認証のデモアプリケーション</p>
-        <div class="env-badge">Environment: ${NODE_ENV}</div>
-
-        <div class="section">
-          <h2>🌐 OAuth Login</h2>
-          <a href="/auth/github" class="btn btn-github">
-            🐙 Login with GitHub
-          </a>
-          <a href="/auth/google" class="btn btn-google">
-            🔴 Login with Google
-          </a>
-        </div>
-
-        <div class="section">
-          <h2>📧 Email/Password Login</h2>
-          <a href="/local/signup" class="btn btn-signup">
-            ✨ Sign Up (Create Account)
-          </a>
-          <a href="/local/signin" class="btn btn-signin">
-            🔑 Sign In (Existing Account)
-          </a>
-        </div>
-        
-        <hr style="margin 30px 0;">
-
-        <a href="/profile" class="btn btn-profile">
-          👤 View Profile (Protected)
-        </a>
-      </body>
-      </html>
-    `);
-});
-
+// ===== Routes =====
 app.use('/auth', authRoutes);
 app.use('/local', localAuthRoutes);
 app.use('/', protectedRoutes);
 
-// サーバー起動
-app.listen(PORT, () => {
-  console.log(`\n${'='.repeat(50)}`);
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📦 Environment: ${NODE_ENV}`);
-  console.log(`💾 Storage: ${USE_DATABASE ? 'PostgreSQL' : 'Memory'}`);
-  console.log(`${'='.repeat(50)}\n`);
-});
-
-// プロセス終了時にプールをクローズ
-process.on('SIGTERM', async () => {
-  console.log('[App] SIGTERM received, closing database connection...');
-  if (USE_DATABASE) {
-    await DatabaseConnection.close();
+// ===== Home ページ (暫定: 後でテンプレート化) =====
+app.get('/', async (req, res) => {
+  // セッションチェック
+  let user = null;
+  const sessionId = req.cookies.sessionId;
+  
+  if (sessionId) {
+    const session = await SessionManager.get(sessionId);
+    if (session) {
+      user = session.userData;
+    }
   }
-  process.exit(0);
+  
+  res.render('home', {
+    title: 'OAuth Practice',
+    user,
+    error: req.query.error || null
+  });
 });
 
-process.on('SIGINT', async () => {
-  console.log('[App] SIGINT received, closing database connection...');
-  if (USE_DATABASE) {
-    await DatabaseConnection.close();
-  }
-  process.exit(0);
-});
-
+// ===== デバッグエンドポイント(開発環境のみ) =====
 if (NODE_ENV === 'development') {
   // ストレージ状態の確認
   app.get('/debug', async (req, res) => {
@@ -240,13 +149,12 @@ if (NODE_ENV === 'development') {
         // メモリ: Repository の debug() を使用
         const userRepo = await RepositoryFactory.getUserRepository();
         const authRepo = await RepositoryFactory.getAuthRepository();
-        const sessionRepo = await RepositoryFactory.getSessionRepository();
 
         // コンソールに出力
         console.log('\n===== DEBUG INFO =====');
         userRepo.debug();
         authRepo.debug();
-        await sessionRepo.debug();
+        await SessionManager.debug();
         console.log('======================\n');
 
         res.json({
@@ -311,3 +219,47 @@ if (NODE_ENV === 'development') {
     }
   });
 }
+
+// ===== エラーハンドリング =====
+app.use((req, res) => {
+  res.status(404).render('error', {
+    title: 'Page Not Found',
+    errorCode: 404,
+    message: 'The page you are looking for does not exist.'
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).render('error', {
+    title: 'Server Error',
+    errorCode: 500,
+    message: NODE_ENV === 'development' ? err.message : 'Internal server error'
+  });
+});
+
+// ===== サーバー起動 =====
+app.listen(PORT, () => {
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📦 Environment: ${NODE_ENV}`);
+  console.log(`💾 Storage: ${RepositoryFactory.getStorageType()}`);
+  console.log(`${'='.repeat(50)}\n`);
+});
+
+// プロセス終了時にプールをクローズ
+process.on('SIGTERM', async () => {
+  console.log('[App] SIGTERM received, closing database connection...');
+  if (USE_DATABASE) {
+    await DatabaseConnection.close();
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('[App] SIGINT received, closing database connection...');
+  if (USE_DATABASE) {
+    await DatabaseConnection.close();
+  }
+  process.exit(0);
+});

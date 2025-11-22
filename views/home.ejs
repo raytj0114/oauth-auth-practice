@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+  </head>
+  <body>
+    <%- include('partials/header') %>
+
+    <main>
+      <div class="container" style="max-width: 600px; margin: 50px auto; text-align: center;">
+        <h1>🔐 OAuth 2.0 Practice</h1>
+        <p>OAuth 認証のデモアプリケーション</p>
+
+        <div class="env-badge" style="display: inline-block; padding: 5px 10px; background: <%= NODE_ENV === 'production' ? '#28a745' : '#ffc107' %>; color: <%= NODE_ENV === 'production' ? 'white' : 'black' %>; border-radius: 3px; font-size: 12px; margin: 10px 0;">
+          Environment: <%= NODE_ENV %>
+        </div>
+
+        <% if (user) { %>
+          <div class="card" style="background: #e7f3ff; margin: 20px 0;">
+            <p>👤 Logged in as: <strong><%= user.username %></strong></p>
+            <p><a href="/profile" class="btn btn-primary mt-2">Go to Profile</a></p>
+        </div>
+      <% } %>
+          
+      <% if (error) { %>
+        <div class="error">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <div class="section">
+        <h2>🌐 OAuth Login</h2>
+        <div class="oauth-buttons">
+          <a href="/auth/github" class="btn-github">
+            <span>🐙</span>
+            <span>Login with GitHub</span>
+          </a>
+          <a href="/auth/google" class="btn-google">
+            <span>🔴</span>
+            <span>Login with Google</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>📧 Email/Password</h2>
+        <a href="/local/signup" class="btn btn-primary" style="width: 100%; margin: 10px 0; display: block;">
+          ✨ Sign Up (Create Account)
+        </a>
+        <a href="/local/signin" class="btn btn-primary" style="width: 100%; margin: 10px 0; display: block; background: #007bff;">
+          🔑 Sign In (Existing Account)
+        </a>
+      </div>
+      </div>
+    </main>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/main.js"></script>
+  </body>
+</html>

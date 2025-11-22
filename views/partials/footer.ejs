@@ -1,0 +1,11 @@
+<footer class="footer">
+  <div class="container">
+    <p>&copy; <%= currentYear %> OAuth Practice Project</p>
+    <p class="text-muted">
+      Learning OAuth 2.0 Authentication
+      <% if (NODE_ENV === 'development') { %>
+        | <a href="/debug">Debug Info</a>
+      <% } %>
+    </p>
+  </div>
+</footer>

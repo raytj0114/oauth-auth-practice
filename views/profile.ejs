@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main>
+    <div class="profile-card">
+      <h1>👤 Profile</h1>
+
+      <% if (typeof success !== 'undefined' && success) { %>
+        <div class="success">
+          ✅ <%= success %>
+        </div>
+      <% } %>
+
+      <% if (user.profile?.avatarUrl) { %>
+        <img 
+          src="<%= user.profile.avatarUrl %>" 
+          width="100" 
+          style="border-radius: 50%; margin: 10px 0;" 
+          alt="Avatar"
+        />
+      <% } %>
+
+      <!-- Basic Info Section -->
+      <div class="section">
+        <h2>Basic Info</h2>
+        
+        <div class="info-row">
+          <strong>User ID:</strong>
+          <span><%= user.id %></span>
+        </div>
+        
+        <div class="info-row">
+          <strong>Username:</strong>
+          <span><%= user.username %></span>
+        </div>
+        
+        <div class="info-row">
+          <strong>Email:</strong>
+          <span><%= user.email || 'Not provided' %></span>
+        </div>
+        
+        <div class="info-row">
+          <strong>Member since:</strong>
+          <span><%= formatDate(user.createdAt) %></span>
+        </div>
+        
+        <div class="info-row">
+          <strong>Last login:</strong>
+          <span><%= formatDateTime(user.lastLoginAt) %></span>
+        </div>
+      </div>
+
+      <!-- Linked Accounts Section -->
+      <div class="section">
+        <h2>Linked Accounts</h2>
+        
+        <% if (linkedProviders.length === 0) { %>
+          <p class="text-muted">No linked accounts</p>
+        <% } else { %>
+          <% linkedProviders.forEach(provider => { %>
+            <div class="linked-account">
+              <strong><%= provider.provider.toUpperCase() %></strong>
+              <% if (provider.email) { %>
+                - <%= provider.email %>
+              <% } %>
+              <br>
+              <small class="text-muted">
+                Linked: <%= formatDate(provider.createdAt) %>
+              </small>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+
+      <!-- Preferences Section -->
+      <div class="section">
+        <h2>Preferences</h2>
+        
+        <div class="info-row">
+          <strong>Theme:</strong>
+          <span class="preference-value">
+            <%= user.preferences?.theme || 'default' %>
+          </span>
+        </div>
+        
+        <div class="info-row">
+          <strong>Language:</strong>
+          <span class="preference-value">
+            <%= user.preferences?.language || 'en' %>
+          </span>
+        </div>
+
+        <form method="POST" action="/profile/preferences" class="preference-form">
+          <div class="form-group">
+            <label for="theme">Theme:</label>
+            <select name="theme" id="theme">
+              <option value="light" <%= user.preferences?.theme === 'light' ? 'selected' : '' %>>
+                ☀️ Light
+              </option>
+              <option value="dark" <%= user.preferences?.theme === 'dark' ? 'selected' : '' %>>
+                🌙 Dark
+              </option>
+            </select>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">
+            Update Preferences
+          </button>
+        </form>
+      </div>
+
+      <!-- Full User Data Section (Debug) -->
+      <% if (NODE_ENV === 'development') { %>
+        <div class="section">
+          <h2>Full User Data (Debug)</h2>
+          <pre><%= JSON.stringify(user, null, 2) %></pre>
+        </div>
+      <% } %>
+
+      <!-- Actions -->
+      <div class="section">
+        <h2>Actions</h2>
+        
+        <form method="POST" action="/auth/logout" style="display: inline;">
+          <button type="submit" class="btn btn-danger">
+            🚪 Logout
+          </button>
+        </form>
+        
+        <a href="/" class="btn" style="background: #6c757d; color: white; margin-left: 10px;">
+          ← Back to Home
+        </a>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Error' %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+  
+  <main>
+    <div class="container" style="max-width: 600px; margin: 100px auto; text-align: center;">
+      <div class="card">
+        <h1 style="font-size: 4rem; margin: 0;"><%= errorCode || '500' %></h1>
+        <h2><%= title %></h2>
+        
+        <% if (message) { %>
+          <p class="text-muted" style="margin: 20px 0;">
+            <%= message %>
+          </p>
+        <% } %>
+        
+        <a href="/" class="btn btn-primary" style="margin-top: 20px;">
+          ← Back to Home
+        </a>
+      </div>
+    </div>
+  </main>
+  
+  <%- include('partials/footer') %>
+  
+  <script src="/js/main.js"></script>
+</body>
+</html>
