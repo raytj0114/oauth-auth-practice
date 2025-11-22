@@ -69,7 +69,7 @@ class AuthManager {
     );
 
     // セッション生成
-    const sessionId = SessionManager.create(user.id, user);
+    const sessionId = await SessionManager.create(user.id, user);
 
     console.log(`[AuthManager] Authentication successful for ${user.username}`);
 

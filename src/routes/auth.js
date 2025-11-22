@@ -5,11 +5,11 @@ import SessionManager from '../auth/SessionManager.js';
 const router = express.Router();
 
 // 認証開始エンドポイント
-router.get('/:provider', (req, res) => {
+router.get('/:provider', async (req, res) => {
   try {
     // 既にログイン中か確認
     const sessionId = req.cookies.sessionId;
-    const session = sessionId ? SessionManager.get(sessionId) : null;
+    const session = sessionId ? await SessionManager.get(sessionId) : null;
 
     if (session) {
       console.log('[Auth] User already authenticated, redirecting to profile');
@@ -71,10 +71,10 @@ router.get('/:provider/callback', async (req, res) => {
 });
 
 // ログアウト
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
-    SessionManager.destroy(sessionId);
+    await SessionManager.destroy(sessionId);
     res.clearCookie('sessionId');
   }
   res.redirect('/');

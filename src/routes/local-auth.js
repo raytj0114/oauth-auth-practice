@@ -5,12 +5,12 @@ import SessionManager from '../auth/SessionManager.js';
 const router = express.Router();
 
 // ===== サインアップページ表示 =====
-router.get('/signup', (req, res) => {
+router.get('/signup', async (req, res) => {
   const error = req.query.error;
 
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
-  const session = sessionId ? SessionManager.get(sessionId) : null;
+  const session = sessionId ? await SessionManager.get(sessionId) : null;
 
   if (session) {
     console.log('[SignUp] User already authenticated, redirecting to profile');
@@ -124,15 +124,8 @@ router.post('/signup', async (req, res) => {
     // ユーザー登録
     const user = await UnifiedAuthService.registerLocal(email, password, username);
 
-    // 既存セッションがあれば削除
-    const existingSessionId = req.cookies.sessionId;
-    if (existingSessionId) {
-      console.log(`[SignUp] Removing old session: ${existingSessionId}`);
-      SessionManager.destroy(existingSessionId);
-    }
-
     // 新しいセッション作成
-    const sessionId = SessionManager.create(user.id, user);
+    const sessionId = await SessionManager.create(user.id, user);
 
     // Cookieセット
     res.cookie('sessionId', sessionId, {
@@ -162,12 +155,12 @@ router.post('/signup', async (req, res) => {
 });
 
 // ===== サインインページ表示 =====
-router.get('/signin', (req, res) => {
+router.get('/signin', async (req, res) => {
   const error = req.query.error;
 
   // 既にログイン中か確認
   const sessionId = req.cookies.sessionId;
-  const session = sessionId ? SessionManager.get(sessionId) : null;
+  const session = sessionId ? await SessionManager.get(sessionId) : null;
 
   if (session) {
     console.log('[SignIn] User already authenticated, redirecting to profile');
@@ -275,15 +268,8 @@ router.post('/signin', async (req, res) => {
       throw new Error('Invalid email or password');
     }
 
-    // 既存セッションがあれば削除
-    const existingSessionId = req.cookies.sessionId;
-    if (existingSessionId) {
-      console.log(`[SignIn] Removing old session: ${existingSessionId}`);
-      SessionManager.destroy(existingSessionId);
-    }
-
     // 新しいセッション作成
-    const sessionId = SessionManager.create(user.id, user);
+    const sessionId = await SessionManager.create(user.id, user);
 
     // Cookieセット
     res.cookie('sessionId', sessionId, {

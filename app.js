@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import DatabaseConnection from './src/database/connection.js';
 import UnifiedAuthService from './src/auth/UnifiedAuthService.js';
+import SessionManager from './src/auth/SessionManager.js';
 import AuthManager from './src/auth/AuthManager.js';
 import GitHubProvider from './src/auth/providers/GitHubProvider.js';
 import GoogleProvider from './src/auth/providers/GoogleProvider.js';
@@ -38,6 +39,9 @@ if (USE_DATABASE) {
 
 // UnifiedAuthService 初期化
 await UnifiedAuthService.initialize();
+
+// SessionManager 初期化
+await SessionManager.initialize();
 
 // ミドルウェア
 app.use(express.json());
@@ -216,6 +220,10 @@ if (NODE_ENV === 'development') {
           'SELECT COUNT(*) as count FROM authentications'
         );
 
+        const sessionCount = await DatabaseConnection.query(
+          'SELECT COUNT(*) as count FROM sessions'
+        );
+
         res.json({
           storage: storageType,
           database: {
@@ -223,7 +231,8 @@ if (NODE_ENV === 'development') {
             tables: tables.rows.map(r => r.table_name),
             counts: {
               users: userCount.rows[0].count,
-              authentications: authCount.rows[0].count
+              authentications: authCount.rows[0].count,
+              sessions: sessionCount.rows[0].count
             }
           }
         });
@@ -231,11 +240,13 @@ if (NODE_ENV === 'development') {
         // メモリ: Repository の debug() を使用
         const userRepo = await RepositoryFactory.getUserRepository();
         const authRepo = await RepositoryFactory.getAuthRepository();
+        const sessionRepo = await RepositoryFactory.getSessionRepository();
 
         // コンソールに出力
         console.log('\n===== DEBUG INFO =====');
         userRepo.debug();
         authRepo.debug();
+        await sessionRepo.debug();
         console.log('======================\n');
 
         res.json({
@@ -257,6 +268,7 @@ if (NODE_ENV === 'development') {
     try {
       await DatabaseConnection.query('TRUNCATE users RESTART IDENTITY CASCADE');
       await DatabaseConnection.query('TRUNCATE authentications RESTART IDENTITY CASCADE');
+      await DatabaseConnection.query('TRUNCATE sessions RESTART IDENTITY CASCADE');
 
       console.log('[Debug] Database reset completed');
 

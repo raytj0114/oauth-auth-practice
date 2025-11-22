@@ -12,6 +12,7 @@ class RepositoryFactory {
     this.useDatabase = process.env.USE_DATABASE === 'true';
     this.userRepository = null;
     this.authRepository = null;
+    this.sessionRepository = null;
   }
 
   /**
@@ -58,6 +59,31 @@ class RepositoryFactory {
     }
 
     return this.authRepository;
+  }
+
+  /**
+   * SessionRepository を取得
+   */
+  async getSessionRepository() {
+    if (this.sessionRepository) {
+      return this.sessionRepository;
+    }
+
+    const maxAge = parseInt(process.env.SESSION_MAX_AGE) || 86400000;
+
+    if (this.useDatabase) {
+      // PostgreSQL版
+      const { default: PostgresSessionRepository } = await import('./postgres/PostgresSessionRepository.js');
+      this.sessionRepository = new PostgresSessionRepository(maxAge);
+      console.log('[RepositoryFactory] Using PostgresSessionRepository');
+    } else {
+      // メモリ版
+      const { default: MemorySessionRepository } = await import('./MemorySessionRepository.js');
+      this.sessionRepository = new MemorySessionRepository(maxAge);
+      console.log('[RepositoryFactory] Using MemorySessionRepository');
+    }
+
+    return this.sessionRepository;
   }
 
   /**

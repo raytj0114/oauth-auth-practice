@@ -170,7 +170,7 @@ router.post('/profile/preferences', requireAuth, async (req, res) => {
     // セッションも更新(オプション)
     const sessionId = req.cookies.sessionId;
     if (sessionId) {
-      SessionManager.updateUserData(sessionId, updatedUser);
+      await SessionManager.updateUserData(sessionId, updatedUser);
     }
     
     console.log(`[Profile] Theme updated successfully`);

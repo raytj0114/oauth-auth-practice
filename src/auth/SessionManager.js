@@ -1,90 +1,85 @@
-import crypto from 'crypto';
+import RepositoryFactory from './stores/RepositoryFactory.js';
 
+/**
+ * SessionManager
+ * Repository を使用した薄いラッパー
+ */
 class SessionManager {
-  constructor(maxAge) {
-    // セッションを保存する入れ物
-    this.sessions = new Map();
-
-    // セッション有効期限(環境変数から受け取る)
-    this.maxAge = maxAge;
+  constructor() {
+    this.repository = null;
+    this.initialized = false;
   }
 
-  // セッションID生成
-  generateSessionId() {
-    return crypto.randomBytes(32).toString('hex');
-  }
-
-  // セッション生成
-  create(userId, userData) {
-    const sessionId = this.generateSessionId();
-    const session = {
-      userId,
-      userData,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + this.maxAge
-    };
-
-    this.sessions.set(sessionId, session);
-    console.log(`[SessionManager] Created session: ${sessionId}`);
-    console.log(`[SessionManager] Expires in: ${this.maxAge / 1000 / 60} minutes`);
-
-    return sessionId;
-  }
-
-  get(sessionId) {
-    const session = this.sessions.get(sessionId);
-
-    if (!session) {
-      console.log(`[SessionManager] Session not found: ${sessionId}`);
-      return null;
+  async initialize() {
+    if (this.initialized) {
+      return;
     }
 
-    // 有効期限チェック
-    if (Date.now() > session.expiresAt) {
-      console.log(`[SessionManager] Session expired: ${sessionId}`);
-      this.sessions.delete(sessionId);
-      return null;
-    }
+    this.repository = await RepositoryFactory.getSessionRepository();
+    this.initialized = true;
 
-    return session;
+    // 定期的に期限切れセッションを削除
+    this.startCleanupTask();
+
+    console.log('[SessionManager] Initialized');
   }
 
-  // セッション削除
-  destroy(sessionId) {
-    console.log(`[SessionManager] Destroyed session: ${sessionId}`);
-    return this.sessions.delete(sessionId);
+  async ensureInitialized() {
+    if (!this.initialized) {
+      await this.initialize();
+    }
   }
 
-  // セッションのユーザーデータを更新
-  updateUserData(sessionId, userData) {
-    const session = this.sessions.get(sessionId);
-
-    if (!session) {
-      console.log(`[SessionManager] Session not found for update: ${sessionId}`);
-      return false;
-    }
-
-    if (Date.now() > session.expiresAt) {
-      console.log(`[SessionManager] Cannot update expired session: ${sessionId}`);
-      this.sessions.delete(sessionId);
-      return false;
-    }
-
-    session.userData = userData;
-    console.log(`[SessionManager] Updated user data in session: ${sessionId}`);
-
-    return true;
+  async create(userId, userData) {
+    await this.ensureInitialized();
+    return await this.repository.create(userId, userData);
   }
-  
-  // 全セッション表示(デバッグ用)
-  debug() {
-    console.log('[SessionManager] Active sessions:', this.sessions.size);
-    for (const [id, session] of this.sessions) {
-      console.log(` ${id}: User ${session.userId}`);
-    }
+
+  async get(sessionId) {
+    await this.ensureInitialized();
+    return await this.repository.get(sessionId);
+  }
+
+  async updateUserData(sessionId, userData) {
+    await this.ensureInitialized();
+    return await this.repository.updateUserData(sessionId, userData);
+  }
+
+  async destroy(sessionId) {
+    await this.ensureInitialized();
+    return await this.repository.destroy(sessionId);
+  }
+
+  async destroyAllForUser(userId) {
+    await this.ensureInitialized();
+    return await this.repository.destroyAllForUser(userId);
+  }
+
+  async getActiveSessionsForUser(userId) {
+    await this.ensureInitialized();
+    return await this.repository.getActiveSessionsForUser(userId);
+  }
+
+  /**
+   * 定期的に期限切れセッションを削除
+   */
+  startCleanupTask() {
+    // 1時間ごとにクリーンアップ
+    setInterval(async () => {
+      try {
+        await this.repository.cleanupExpired();
+      } catch (error) {
+        console.error('[SessionManager] Cleanup task error:', error);
+      }
+    }, 60 * 60 * 1000); // 1時間
+    
+    console.log('[SessionManager] Cleanup task started (runs every hour)');
+  }
+
+  async debug() {
+    await this.ensureInitialized();
+    await this.repository.debug();
   }
 }
 
-// 環境変数から有効期限を取得してインスタンス化
-const maxAge = parseInt(process.env.SESSION_MAX_AGE) || 86400000;
-export default new SessionManager(maxAge);
+export default new SessionManager();
