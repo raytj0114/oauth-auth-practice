@@ -1,7 +1,7 @@
 -- 初回起動時に実行されるSQL
 
 -- Users テーブル
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(64) PRIMARY KEY,
   username VARCHAR(255) NOT NULL,
   email VARCHAR(255),
@@ -12,7 +12,7 @@ CREATE TABLE users (
 );
 
 -- Authentications テーブル
-CREATE TABLE authentications (
+CREATE TABLE IF NOT EXISTS authentications (
   id VARCHAR(64) PRIMARY KEY,
   -- 外部キー制約
   -- users が削除されたら、その authentications も自動削除
@@ -28,14 +28,27 @@ CREATE TABLE authentications (
   UNIQUE(provider, provider_id)
 );
 
+-- Sessions テーブル
+CREATE TABLE IF NOT EXISTS sessions (
+  id VARCHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_accessed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 -- インデックス: 検索を高速化
-CREATE INDEX idx_auth_user_id ON authentications(user_id);
-CREATE INDEX idx_auth_provider ON authentications(provider, provider_id);
-CREATE INDEX idx_auth_email ON authentications(email);
+CREATE INDEX IF NOT EXISTS idx_auth_user_id ON authentications(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_provider ON authentications(provider, provider_id);
+CREATE INDEX IF NOT EXISTS idx_auth_email ON authentications(email);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
 -- コメント追加
 COMMENT ON TABLE users IS 'ユーザー情報テーブル';
 COMMENT ON TABLE authentications IS '認証情報テーブル';
+COMMENT ON TABLE sessions IS 'セッション情報テーブル';
 
 COMMENT ON COLUMN users.preferences IS 'ユーザー設定(JSON): theme, language等';
 COMMENT ON COLUMN users.profile IS 'プロフィール(JSON): bio, avatarUrl等';
@@ -43,3 +56,7 @@ COMMENT ON COLUMN users.profile IS 'プロフィール(JSON): bio, avatarUrl等'
 COMMENT ON COLUMN authentications.provider IS '認証プロバイダー: local, github, google';
 COMMENT ON COLUMN authentications.provider_id IS 'OAuth プロバイダーのユーザーID(localの場合はNULL)';
 COMMENT ON COLUMN authentications.password_hash IS 'パスワードハッシュ(localの場合のみ)';
+
+COMMENT ON COLUMN sessions.data IS 'セッションデータ(JSON): userData等';
+COMMENT ON COLUMN sessions.expires_at IS 'セッション有効期限';
+COMMENT ON COLUMN sessions.last_accessed_at IS '最終アクセス日時';

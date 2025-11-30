@@ -4,6 +4,24 @@ import SessionManager from '../auth/SessionManager.js';
 
 const router = express.Router();
 
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+/**
+ * Cookie の設定を生成
+ * セキュリティを考慮した設定
+ */
+function getCookieOptions() {
+  const maxAge = parseInt(process.env.SESSION_MAX_AGE);
+  
+  return {
+    httpOnly: true, // JavaScriptからアクセス不可
+    secure: NODE_ENV === 'production', // 本番環境ではHTTPSのみ
+    sameSite: 'lax', // CSRF対策: 同一サイトからのリクエストのみ
+    maxAge: isNaN(maxAge) ? 86400000 : maxAge, // デフォルト24時間
+    path: '/' // 全てのパスで有効
+  };
+}
+
 // 認証開始エンドポイント
 router.get('/:provider', async (req, res) => {
   try {
@@ -18,6 +36,14 @@ router.get('/:provider', async (req, res) => {
 
     // ログインしていなければ認証開始
     const { provider } = req.params;
+    
+    // サポートされているプロバイダーか確認
+    const supportedProviders = ['github', 'google'];
+    if (!supportedProviders.includes(provider)) {
+      console.log(`[Auth] Unsupported provider: ${provider}`);
+      return res.redirect('/?error=Unsupported authentication provider');
+    }
+
     console.log(`\n=== Authentication Flow Started ===`);
     console.log(`Provider: ${provider}`);
 
@@ -27,7 +53,7 @@ router.get('/:provider', async (req, res) => {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Auth start error:', error);
-    res.status(400).send('Invalid provider');
+    res.redirect('/?error=Authentication failed to start');
   }
 });
 
@@ -35,15 +61,22 @@ router.get('/:provider', async (req, res) => {
 router.get('/:provider/callback', async (req, res) => {
   try {
     const { provider } = req.params;
-    const { code, state } = req.query;
+    const { code, state, error: oauthError } = req.query;
 
     console.log(`\n=== Callback Received ===`);
     console.log(`Provider: ${provider}`);
     console.log(`Code: ${code ? '✓' : '×'}`);
     console.log(`State: ${state}`);
 
+    // OAuthプロバイダーからのエラー
+    if (oauthError) {
+      console.log(`[Auth] OAuth error: ${oauthError}`);
+      return res.redirect(`/?error=${encodeURIComponent('Authentication was cancelled or denied')}`);
+    }
+
     if (!code || !state) {
-      throw new Error('Missing code or state');
+      console.log('[Auth] Missing code or state');
+      return res.redirect('/?error=Invalid authentication response');
     }
 
     // 認証処理
@@ -53,20 +86,22 @@ router.get('/:provider/callback', async (req, res) => {
       state
     );
 
-    // セッションIDをCookieにセット
-    res.cookie('sessionId', sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: parseInt(process.env.SESSION_MAX_AGE) || 86400000
-    });
+    // セッションIDをCookieにセット(強化された設定)
+    res.cookie('sessionId', sessionId, getCookieOptions());
 
     console.log(`Session created: ${sessionId}`);
     console.log(`=== Authentication Complete ===\n`);
 
     res.redirect('/profile');
   } catch (error) {
-    console.log('Callback error:', error);
-    res.status(400).send(`Authentication failed: ${error.message}`);
+    console.error('Callback error:', error);
+    
+    // 本番環境ではエラー詳細を隠す
+    const errorMessage = NODE_ENV === 'development' 
+      ? error.message 
+      : 'Authentication failed';
+    
+    res.redirect(`/?error=${encodeURIComponent(errorMessage)}`);
   }
 });
 
@@ -74,8 +109,20 @@ router.get('/:provider/callback', async (req, res) => {
 router.post('/logout', async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
-    await SessionManager.destroy(sessionId);
-    res.clearCookie('sessionId');
+    try {
+      await SessionManager.destroy(sessionId);
+      console.log(`[Auth] Session destroyed: ${sessionId}`);
+    } catch (error) {
+      console.error('[Auth] Session destroy error:', error);
+    }
+    
+    // Cookieをクリア(同じオプションで)
+    res.clearCookie('sessionId', {
+      httpOnly: true,
+      secure: NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
+    });
   }
   res.redirect('/');
 });

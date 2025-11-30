@@ -3,6 +3,9 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
 import DatabaseConnection from './src/database/connection.js';
 import UnifiedAuthService from './src/auth/UnifiedAuthService.js';
 import SessionManager from './src/auth/SessionManager.js';
@@ -28,9 +31,72 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const USE_DATABASE = process.env.USE_DATABASE === 'true';
 
+// ===== セキュリティミドルウェア =====
+
+// Helmet: セキュリティヘッダーを設定
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://avatars.githubusercontent.com", "https://lh3.googleusercontent.com"],
+    },
+  },
+  // COEP を無効化: 外部画像（GitHub/Google アバター）の読み込みを許可
+  // crossOriginEmbedderPolicy: true にすると外部リソースがブロックされる
+  crossOriginEmbedderPolicy: false,
+  // CORP ヘッダーも調整
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+
+// レート制限: 全体のリクエスト制限
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 100, // 100リクエスト/15分
+  standardHeaders: true,
+  legacyHeaders: false,
+  // 開発環境ではスキップ
+  skip: () => NODE_ENV === 'development',
+  // カスタムエラーハンドラー: EJS テンプレートを使用
+  handler: (req, res) => {
+    res.status(429).render('error', {
+      title: 'Too Many Requests',
+      errorCode: 429,
+      message: 'Too many requests from this IP. Please try again later.'
+    });
+  },
+});
+
+// レート制限: 認証関連の厳しい制限
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 10, // 10回まで/15分
+  standardHeaders: true,
+  legacyHeaders: false,
+  // 開発環境ではスキップ
+  skip: () => NODE_ENV === 'development',
+  // カスタムエラーハンドラー: EJS テンプレートを使用
+  handler: (req, res) => {
+    res.status(429).render('error', {
+      title: 'Too Many Attempts',
+      errorCode: 429,
+      message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
+    });
+  },
+});
+
+// 全体のレート制限を適用
+app.use(generalLimiter);
+
 // ===== View Engine 設定 =====
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// 本番環境ではテンプレートキャッシュを有効化
+if (NODE_ENV === 'production') {
+  app.set('view cache', true);
+}
 
 // ===== 静的ファイル =====
 app.use(express.static(path.join(__dirname, 'public')));
@@ -41,25 +107,41 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(viewHelpers);
 
-// リクエストログ
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
+// ===== リクエストログ =====
+if (NODE_ENV === 'production') {
+  // 本番環境: 簡潔なログ
+  app.use(morgan('combined'));
+} else {
+  // 開発環境: 詳細なログ
+  app.use(morgan('dev'));
+}
+
+// ===== Trust Proxy (Heroku, Railway などのリバースプロキシ対応) =====
+if (NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// ===== Health Check エンドポイント =====
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    storage: RepositoryFactory.getStorageType()
+  });
 });
 
-// データベース初期化
+// ===== データベース初期化 =====
 if (USE_DATABASE) {
   console.log('[App] Using PostgreSQL database');
   DatabaseConnection.initialize();
 
   // 接続テスト
-  await DatabaseConnection.testConnection()
-    .then(success => {
-      if (!success) {
-        console.error('[App] Database connection failed. Exiting...');
-        process.exit(1);
-      }
-    });
+  const connectionSuccess = await DatabaseConnection.testConnection();
+  if (!connectionSuccess) {
+    console.error('[App] Database connection failed. Exiting...');
+    process.exit(1);
+  }
 } else {
   console.log('[App] Using in-memory storage');
 }
@@ -81,12 +163,17 @@ AuthManager.registerProvider('google', new GoogleProvider({
   redirectUri: process.env.GOOGLE_REDIRECT_URI
 }));
 
+// ===== 認証関連ルートにレート制限を適用 =====
+app.use('/local/signin', authLimiter);
+app.use('/local/signup', authLimiter);
+app.use('/auth', authLimiter);
+
 // ===== Routes =====
 app.use('/auth', authRoutes);
 app.use('/local', localAuthRoutes);
 app.use('/', protectedRoutes);
 
-// ===== Home ページ (暫定: 後でテンプレート化) =====
+// ===== Home ページ =====
 app.get('/', async (req, res) => {
   // セッションチェック
   let user = null;
@@ -220,7 +307,7 @@ if (NODE_ENV === 'development') {
   });
 }
 
-// ===== エラーハンドリング =====
+// ===== 404 エラーハンドリング =====
 app.use((req, res) => {
   res.status(404).render('error', {
     title: 'Page Not Found',
@@ -229,12 +316,19 @@ app.use((req, res) => {
   });
 });
 
+// ===== グローバルエラーハンドリング =====
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
+  
+  // 本番環境ではエラー詳細を隠す
+  const errorMessage = NODE_ENV === 'development' 
+    ? err.message 
+    : 'An unexpected error occurred. Please try again later.';
+  
   res.status(500).render('error', {
     title: 'Server Error',
     errorCode: 500,
-    message: NODE_ENV === 'development' ? err.message : 'Internal server error'
+    message: errorMessage
   });
 });
 
@@ -244,6 +338,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 Environment: ${NODE_ENV}`);
   console.log(`💾 Storage: ${RepositoryFactory.getStorageType()}`);
+  console.log(`🔒 Security: helmet, rate-limit enabled`);
   console.log(`${'='.repeat(50)}\n`);
 });
 
