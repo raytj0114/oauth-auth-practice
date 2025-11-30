@@ -17,6 +17,11 @@ import authRoutes from './src/routes/auth.js';
 import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
 import { viewHelpers } from './src/middleware/viewHelpers.js';
+import { 
+  doubleCsrfProtection, 
+  csrfTokenMiddleware, 
+  csrfErrorHandler 
+} from './src/middleware/csrf.js';
 
 dotenv.config();
 
@@ -44,7 +49,6 @@ app.use(helmet({
     },
   },
   // COEP を無効化: 外部画像（GitHub/Google アバター）の読み込みを許可
-  // crossOriginEmbedderPolicy: true にすると外部リソースがブロックされる
   crossOriginEmbedderPolicy: false,
   // CORP ヘッダーも調整
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -61,6 +65,7 @@ const generalLimiter = rateLimit({
   // カスタムエラーハンドラー: EJS テンプレートを使用
   handler: (req, res) => {
     res.status(429).render('error', {
+      ...res.locals,
       title: 'Too Many Requests',
       errorCode: 429,
       message: 'Too many requests from this IP. Please try again later.'
@@ -79,6 +84,7 @@ const authLimiter = rateLimit({
   // カスタムエラーハンドラー: EJS テンプレートを使用
   handler: (req, res) => {
     res.status(429).render('error', {
+      ...res.locals,
       title: 'Too Many Attempts',
       errorCode: 429,
       message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
@@ -105,7 +111,36 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ===== ビューヘルパー =====
 app.use(viewHelpers);
+
+// ===== CSRF 保護 =====
+// 注意: cookieParser と urlencoded の後に配置する必要がある
+app.use(csrfTokenMiddleware); // 全リクエストでトークンを生成
+
+// CSRF 保護が不要なルート（OAuth コールバック、ヘルスチェック）
+const csrfExcludedPaths = [
+  '/health',
+  '/auth/github/callback',
+  '/auth/google/callback',
+];
+
+// CSRF 検証ミドルウェア（POST リクエストのみ、除外パス以外）
+app.use((req, res, next) => {
+  // GET, HEAD, OPTIONS は検証しない
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  
+  // 除外パスは検証しない
+  if (csrfExcludedPaths.some(path => req.path.startsWith(path))) {
+    return next();
+  }
+  
+  // CSRF 検証を実行
+  doubleCsrfProtection(req, res, next);
+});
 
 // ===== リクエストログ =====
 if (NODE_ENV === 'production') {
@@ -310,11 +345,15 @@ if (NODE_ENV === 'development') {
 // ===== 404 エラーハンドリング =====
 app.use((req, res) => {
   res.status(404).render('error', {
+    ...res.locals,
     title: 'Page Not Found',
     errorCode: 404,
     message: 'The page you are looking for does not exist.'
   });
 });
+
+// ===== CSRF エラーハンドリング =====
+app.use(csrfErrorHandler);
 
 // ===== グローバルエラーハンドリング =====
 app.use((err, req, res, next) => {
@@ -326,6 +365,7 @@ app.use((err, req, res, next) => {
     : 'An unexpected error occurred. Please try again later.';
   
   res.status(500).render('error', {
+    ...res.locals,
     title: 'Server Error',
     errorCode: 500,
     message: errorMessage
@@ -338,7 +378,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 Environment: ${NODE_ENV}`);
   console.log(`💾 Storage: ${RepositoryFactory.getStorageType()}`);
-  console.log(`🔒 Security: helmet, rate-limit enabled`);
+  console.log(`🔒 Security: helmet, rate-limit, CSRF enabled`);
   console.log(`${'='.repeat(50)}\n`);
 });
 

@@ -21,6 +21,9 @@
         <% } %>
         
         <form method="POST" action="/local/signin">
+          <!-- CSRF トークン -->
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          
           <div class="form-group">
             <label for="email">Email:</label>
             <input 

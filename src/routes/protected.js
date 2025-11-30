@@ -14,6 +14,7 @@ router.get('/profile', requireAuth, async (req, res) => {
 
     if (!user) {
       return res.status(404).render('error', {
+        ...res.locals,
         title: 'User Not Found',
         errorCode: 404,
         message: 'Your user account could not be found.'
@@ -31,6 +32,7 @@ router.get('/profile', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Profile page error:', error);
     res.status(500).render('error', {
+      ...res.locals,
       title: 'Server Error',
       errorCode: 500,
       message: 'Failed to load profile page.'
@@ -66,6 +68,7 @@ router.post('/profile/preferences', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Update preferences error:', error);
     res.status(500).render('error', {
+      ...res.locals,
       title: 'Update Failed',
       errorCode: 500,
       message: error.message

@@ -21,6 +21,9 @@
         <% } %>
         
         <form method="POST" action="/local/signup">
+          <!-- CSRF トークン -->
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          
           <div class="form-group">
             <label for="username">Username:</label>
             <input 
