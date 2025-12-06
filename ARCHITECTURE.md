@@ -4,14 +4,18 @@
 
 1. [概要](#概要)
 2. [システム構成](#システム構成)
-3. [データモデル](#データモデル)
-4. [認証フロー](#認証フロー)
-5. [認証パターン](#認証パターン)
-6. [セキュリティ](#セキュリティ)
-7. [データベース実装](#データベース実装)
-8. [プレゼンテーション層の実装](#プレゼンテーション層の実装)
-9. [パフォーマンス考慮事項](#パフォーマンス考慮事項)
-10. [拡張ポイント](#拡張ポイント)
+3. [ミドルウェア構成](#ミドルウェア構成)
+4. [データモデル](#データモデル)
+5. [認証フロー](#認証フロー)
+6. [CSRF 保護フロー](#csrf-保護フロー)
+7. [認証パターン](#認証パターン)
+8. [セキュリティ](#セキュリティ)
+9. [セキュリティ設計](#セキュリティ設計)
+10. [データベース実装](#データベース実装)
+11. [プレゼンテーション層の実装](#プレゼンテーション層の実装)
+12. [本番環境設定](#本番環境設定)
+13. [パフォーマンス考慮事項](#パフォーマンス考慮事項)
+14. [拡張ポイント](#拡張ポイント)
 
 ## 概要
 
@@ -140,6 +144,7 @@
 **責務**: セッション情報の管理
 
 **データ**:
+
 ```javascript
 {
   id: 'session_abc123',
@@ -152,6 +157,7 @@
 ```
 
 **メソッド**:
+
 - `create()`: セッション作成
 - `get()`: セッション取得
 - `updateUserData()`: セッションデータ更新
@@ -217,6 +223,123 @@ USE_DATABASE=false → メモリ版を返す
 
 - `GitHubProvider`: GitHub OAuth
 - `GoogleProvider`: Google OAuth
+
+## ミドルウェア構成
+
+### リクエスト処理フロー
+
+```
+リクエスト
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  1. Helmet                                              │
+│     セキュリティヘッダーを追加                            │
+│     - CSP, X-Frame-Options, X-Content-Type-Options      │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  2. Rate Limiter (express-rate-limit)                   │
+│     リクエスト数を制限                                    │
+│     - 全体: 100回/15分                                   │
+│     - 認証: 10回/15分                                    │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  3. Static Files (express.static)                       │
+│     /public の静的ファイルを配信                          │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  4. Body Parser (express.json, express.urlencoded)      │
+│     リクエストボディを解析                                │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  5. Cookie Parser (cookie-parser)                       │
+│     Cookie を解析                                        │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  6. View Helpers                                        │
+│     テンプレート用のヘルパー関数を設定                     │
+│     - user, formatDate, formatDateTime, NODE_ENV        │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  7. CSRF Token Middleware                               │
+│     CSRF トークンを生成して res.locals に設定             │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  8. CSRF Protection (POST リクエストのみ)                │
+│     トークンを検証（除外パス以外）                         │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  9. Morgan (Request Logger)                             │
+│     リクエストをログ出力                                  │
+│     - 開発: dev 形式                                     │
+│     - 本番: combined 形式                                │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  10. Route Handlers                                     │
+│      - /auth/* (OAuth)                                  │
+│      - /local/* (ローカル認証)                           │
+│      - / (保護されたルート)                              │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│  11. Error Handlers                                     │
+│      - 404 Not Found                                    │
+│      - CSRF Error (403)                                 │
+│      - Global Error (500)                               │
+└─────────────────────────────────────────────────────────┘
+    ↓
+レスポンス
+```
+
+### ミドルウェア詳細
+
+#### Helmet 設定
+
+```javascript
+helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https://avatars.githubusercontent.com",
+        "https://lh3.googleusercontent.com",
+      ],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // 外部画像許可
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+});
+```
+
+#### Rate Limiter 設定
+
+```javascript
+// 全体のレート制限
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 100, // 100リクエスト
+  skip: () => NODE_ENV === "development",
+});
+
+// 認証関連の厳しい制限
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 10, // 10リクエスト
+  skip: () => NODE_ENV === "development",
+});
+```
 
 ## データモデル
 
@@ -399,6 +522,77 @@ sessions: Map/Table {
 8. HTML レスポンス
 ```
 
+## CSRF 保護フロー
+
+### Double Submit Cookie パターン
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│    ブラウザ      │                    │    サーバー     │
+└─────────────────┘                    └─────────────────┘
+        │                                      │
+        │  1. GET /local/signin                │
+        │─────────────────────────────────────→│
+        │                                      │
+        │                           ┌──────────┴──────────┐
+        │                           │ トークン生成         │
+        │                           │ token = random()    │
+        │                           └──────────┬──────────┘
+        │                                      │
+        │  2. HTML + Set-Cookie: __csrf=token  │
+        │←─────────────────────────────────────│
+        │                                      │
+   ┌────┴──────┐                               │
+   │ Cookie に │                               │
+   │ トークン  │                                │
+   │ を保存    │                                │
+   └────┬──────┘                               │
+        │                                      │
+        │  3. POST /local/signin               │
+        │     Cookie: __csrf=token             │
+        │     Body: _csrf=token                │
+        │─────────────────────────────────────→│
+        │                                      │
+        │                           ┌──────────┴──────────┐
+        │                           │ 検証                │
+        │                           │ Cookie == Body?     │
+        │                           └──────────┬──────────┘
+        │                                      │
+        │  4a. 一致: 処理を続行                 │
+        │  4b. 不一致: 403 Forbidden           │
+        │←─────────────────────────────────────│
+        │                                      │
+```
+
+### なぜ安全か
+
+1. **攻撃者は Cookie を読めない**
+
+   - Same-Origin Policy により、他サイトからの Cookie アクセスは不可
+
+2. **攻撃者は正しいトークンを送れない**
+
+   - フォームに埋め込むトークンを知らない
+   - Cookie の値も読めない
+
+3. **SameSite Cookie**
+   - `sameSite: 'lax'` により、クロスサイトの POST で Cookie が送信されない
+
+### CSRF 除外パス
+
+```javascript
+const csrfExcludedPaths = [
+  "/health", // ヘルスチェック（GET のみ）
+  "/auth/github/callback", // GitHub OAuth コールバック
+  "/auth/google/callback", // Google OAuth コールバック
+];
+```
+
+**除外理由**:
+
+- `/health`: POST を使用しない
+- OAuth コールバック: 外部サービスからのリダイレクトなのでトークンを持てない
+
 ## 認証パターン
 
 ### パターン 1: 別アカウント (現在の実装)
@@ -504,6 +698,7 @@ if (!pendingStates.has(state)) {
 - **有効期限**: 24 時間 (設定可能)
 - **セッション ID**: 暗号学的に安全なランダム値
 - **自動クリーンアップ**: 期限切れセッションを定期削除
+
 ```javascript
 res.cookie("sessionId", sessionId, {
   httpOnly: true, // XSS 対策
@@ -527,6 +722,7 @@ await pool.query("SELECT * FROM users WHERE email = $1", [email]);
 ### XSS 対策
 
 EJS の自動エスケープを使用:
+
 ```html
 <!-- ✅ 自動エスケープ (安全) -->
 <p><%= user.username %></p>
@@ -552,6 +748,65 @@ const userInfo = await provider.getUserInfo(accessToken);
 - GitHub API を継続的に使う予定がない
 
 将来 GitHub API を使う場合は、暗号化して保存する必要があります。
+
+## セキュリティ設計
+
+### 多層防御 (Defense in Depth)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: ネットワーク                                   │
+│  - HTTPS (TLS)                                          │
+│  - Rate Limiting                                        │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│  Layer 2: HTTP ヘッダー                                  │
+│  - Helmet (CSP, X-Frame-Options, etc.)                  │
+│  - Secure Cookies                                       │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│  Layer 3: アプリケーション                               │
+│  - CSRF 保護 (Double Submit Cookie)                     │
+│  - 入力バリデーション                                    │
+│  - パスワードハッシュ化 (bcrypt)                         │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│  Layer 4: データ                                        │
+│  - セッション管理                                        │
+│  - 最小権限の原則                                        │
+│  - パラメータ化クエリ                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cookie セキュリティ
+
+| Cookie      | httpOnly | secure   | sameSite | 用途           |
+| ----------- | -------- | -------- | -------- | -------------- |
+| `sessionId` | ✓        | ✓ (本番) | lax      | セッション識別 |
+| `__csrf`    | ✓        | ✓ (本番) | lax      | CSRF トークン  |
+
+### エラーハンドリング
+
+```
+リクエスト処理中にエラー発生
+        ↓
+┌───────────────────────────────────────┐
+│  1. CSRF Error Handler                │
+│     err.code === 'EBADCSRFTOKEN'      │
+│     → 403 Forbidden                   │
+└───────────────────────────────────────┘
+        ↓ (該当しない場合)
+┌───────────────────────────────────────┐
+│  2. Global Error Handler              │
+│     その他全てのエラー                 │
+│     → 500 Internal Server Error       │
+│     (開発環境: 詳細表示)               │
+│     (本番環境: 詳細を隠す)             │
+└───────────────────────────────────────┘
+```
 
 ## データベース実装
 
@@ -758,6 +1013,7 @@ NODE_ENV=production
 **責務**: ビューのレンダリング
 
 **構造**:
+
 ```
 views/
 ├── layouts/
@@ -774,23 +1030,26 @@ views/
 ```
 
 **特徴**:
+
 - **パーシャル**: 再利用可能なコンポーネント
 - **レイアウト**: 共通構造を共有
 - **自動エスケープ**: XSS 対策
 - **JavaScript 構文**: そのまま使える
 
 **ビューヘルパー**:
+
 ```javascript
 // src/middleware/viewHelpers.js
-res.locals.user           // 現在のユーザー
-res.locals.formatDate()   // 日付フォーマット
-res.locals.formatDateTime() // 日時フォーマット
-res.locals.currentYear    // 現在の年
-res.locals.NODE_ENV       // 環境変数
-res.locals.currentPath    // 現在のパス
+res.locals.user; // 現在のユーザー
+res.locals.formatDate(); // 日付フォーマット
+res.locals.formatDateTime(); // 日時フォーマット
+res.locals.currentYear; // 現在の年
+res.locals.NODE_ENV; // 環境変数
+res.locals.currentPath; // 現在のパス
 ```
 
 **使用例**:
+
 ```html
 <!-- パーシャルの読み込み -->
 <%- include('partials/header') %>
@@ -800,14 +1059,14 @@ res.locals.currentPath    // 現在のパス
 
 <!-- 条件分岐 -->
 <% if (user) { %>
-  <p>Welcome, <%= user.username %>!</p>
+<p>Welcome, <%= user.username %>!</p>
 <% } else { %>
-  <p>Please sign in</p>
+<p>Please sign in</p>
 <% } %>
 
 <!-- ループ -->
 <% linkedProviders.forEach(provider => { %>
-  <div><%= provider.provider %></div>
+<div><%= provider.provider %></div>
 <% }); %>
 
 <!-- ヘルパー関数 -->
@@ -819,12 +1078,14 @@ res.locals.currentPath    // 現在のパス
 #### CSS: `public/css/style.css`
 
 **設計原則**:
+
 - CSS Variables でテーマ管理
 - レスポンシブデザイン (モバイルファースト)
 - コンポーネントベースの設計
 - BEM 風の命名規則
 
 **主要コンポーネント**:
+
 ```css
 /* Variables */
 :root {
@@ -837,20 +1098,41 @@ res.locals.currentPath    // 現在のパス
 }
 
 /* Components */
-.card { ... }
-.btn { ... }
-.form-group { ... }
-.section { ... }
-.info-row { ... }
-.linked-account { ... }
+.card {
+  ...;
+}
+.btn {
+  ...;
+}
+.form-group {
+  ...;
+}
+.section {
+  ...;
+}
+.info-row {
+  ...;
+}
+.linked-account {
+  ...;
+}
 
 /* Utilities */
-.text-center { ... }
-.text-muted { ... }
-.mt-1, .mt-2, ... { ... }
+.text-center {
+  ...;
+}
+.text-muted {
+  ...;
+}
+.mt-1,
+.mt-2,
+... {
+  ...;
+}
 ```
 
 **レスポンシブブレークポイント**:
+
 ```css
 @media (max-width: 768px) {
   /* タブレット/モバイル */
@@ -860,26 +1142,28 @@ res.locals.currentPath    // 現在のパス
 #### JavaScript: `public/js/main.js`
 
 **機能**:
+
 - クライアント側バリデーション
 - フォームインタラクション
 - アニメーション制御
 - ユーザー体験の向上
 
 **主要機能**:
+
 ```javascript
 // フォームバリデーション
-document.querySelector('form').addEventListener('submit', (e) => {
+document.querySelector("form").addEventListener("submit", (e) => {
   // バリデーションロジック
 });
 
 // テーマ変更ハンドリング
-themeSelect.addEventListener('change', () => {
+themeSelect.addEventListener("change", () => {
   // プレビュー表示
 });
 
 // Logout 確認
-logoutForm.addEventListener('submit', (e) => {
-  if (!confirm('Are you sure?')) {
+logoutForm.addEventListener("submit", (e) => {
+  if (!confirm("Are you sure?")) {
     e.preventDefault();
   }
 });
@@ -893,6 +1177,7 @@ const observer = new IntersectionObserver((entries) => {
 ### ルーティング
 
 **Routes の責務**:
+
 - リクエストの受付
 - 入力バリデーション
 - Service 層の呼び出し
@@ -900,21 +1185,24 @@ const observer = new IntersectionObserver((entries) => {
 - リダイレクト処理
 
 **例**:
+
 ```javascript
 // src/routes/protected.js
-router.get('/profile', requireAuth, async (req, res) => {
+router.get("/profile", requireAuth, async (req, res) => {
   // 1. Service層からデータ取得
   const user = await UnifiedAuthService.getUserWithAuths(req.user.id);
-  
+
   // 2. ビューをレンダリング
-  res.render('profile', {
+  res.render("profile", {
     title: `Profile - ${user.username}`,
     user,
-    linkedProviders: user.linkedProviders || []
+    linkedProviders: user.linkedProviders || [],
   });
 });
 ```
+
 ### MVC パターンの実装
+
 ```
 ┌─────────────────────────────────────┐
 │  View (EJS Templates)               │
@@ -943,13 +1231,14 @@ router.get('/profile', requireAuth, async (req, res) => {
 
 **責務の分離**:
 
-| Layer | 責務 | 例 |
-|-------|------|-----|
-| **View** | UI表示、ユーザー入力 | EJS テンプレート、CSS、JavaScript |
-| **Controller** | リクエスト処理、フロー制御 | Express Routes |
-| **Model** | ビジネスロジック、データ操作 | Service、Repository |
+| Layer          | 責務                         | 例                                |
+| -------------- | ---------------------------- | --------------------------------- |
+| **View**       | UI 表示、ユーザー入力        | EJS テンプレート、CSS、JavaScript |
+| **Controller** | リクエスト処理、フロー制御   | Express Routes                    |
+| **Model**      | ビジネスロジック、データ操作 | Service、Repository               |
 
 **データフロー**:
+
 ```
 User Request
     ↓
@@ -972,11 +1261,54 @@ View (EJS)
 User Response
 ```
 
+## 本番環境設定
+
+### 必須の環境変数
+
+| 変数名                 | 説明               | 例                               |
+| ---------------------- | ------------------ | -------------------------------- |
+| `NODE_ENV`             | 環境               | `production`                     |
+| `PORT`                 | ポート番号         | `3000`                           |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth       | `Iv1.xxx`                        |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth       | `xxx`                            |
+| `GITHUB_REDIRECT_URI`  | コールバック URL   | `https://...`                    |
+| `GOOGLE_CLIENT_ID`     | Google OAuth       | `xxx.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth       | `xxx`                            |
+| `GOOGLE_REDIRECT_URI`  | コールバック URL   | `https://...`                    |
+| `CSRF_SECRET`          | CSRF シークレット  | 32 バイトのランダム文字列        |
+| `SESSION_MAX_AGE`      | セッション有効期限 | `86400000` (24 時間)             |
+
+### データベース設定（PostgreSQL）
+
+| 変数名         | 説明          | 例                                 |
+| -------------- | ------------- | ---------------------------------- |
+| `USE_DATABASE` | DB 使用フラグ | `true`                             |
+| `DATABASE_URL` | 接続 URL      | `postgresql://...?sslmode=require` |
+
+### 本番環境での挙動変化
+
+| 機能                   | 開発環境 | 本番環境 |
+| ---------------------- | -------- | -------- |
+| レート制限             | スキップ | 有効     |
+| Cookie secure          | false    | true     |
+| エラー詳細             | 表示     | 非表示   |
+| テンプレートキャッシュ | 無効     | 有効     |
+| ログ形式               | dev      | combined |
+| Trust Proxy            | 無効     | 有効     |
+
+### シークレットの生成
+
+```bash
+# CSRF_SECRET の生成
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
 ## パフォーマンス考慮事項
 
 ### 現在の実装 (PostgreSQL)
 
 **長所**:
+
 - ✅ データ永続化
 - ✅ 複数サーバーで共有可能
 - ✅ トランザクション対応
@@ -984,6 +1316,7 @@ User Response
 - ✅ セッション永続化
 
 **最適化のポイント**:
+
 - インデックスで検索高速化済み
 - コネクションプールで接続再利用
 - JSONB フィールドで柔軟性確保
@@ -992,13 +1325,14 @@ User Response
 ### クエリパフォーマンス
 
 **よく使うクエリ**:
+
 ```sql
 -- ログイン (高速: idx_auth_email使用)
-SELECT user_id FROM authentications 
+SELECT user_id FROM authentications
 WHERE email = $1 AND provider = 'local';
 
 -- OAuth検索 (高速: idx_auth_provider使用)
-SELECT user_id FROM authentications 
+SELECT user_id FROM authentications
 WHERE provider = $1 AND provider_id = $2;
 
 -- ユーザー情報取得 (高速: PRIMARY KEY)
@@ -1016,12 +1350,14 @@ SELECT * FROM sessions WHERE id = $1 AND expires_at > NOW();
 **現在の実装**: PostgreSQL
 
 **利点**:
+
 - データ永続化
 - 複数サーバー間で共有可能
 - トランザクション対応
 - 定期的な自動クリーンアップ
 
 **最適化**:
+
 - `expires_at` にインデックス作成済み
 - 定期クリーンアップで不要データ削除
 - コネクションプール活用
@@ -1029,12 +1365,14 @@ SELECT * FROM sessions WHERE id = $1 AND expires_at > NOW();
 **将来の選択肢**:
 
 **オプション 1: Redis (推奨 - 大規模)**
+
 - 高速なインメモリストア
 - TTL で自動削除
 - 複数サーバー間でセッション共有
 - Pub/Sub 機能
 
 **オプション 2: PostgreSQL (現在 - 中小規模)**
+
 - 既存インフラ活用
 - 追加サービス不要
 - 中小規模アプリには十分
@@ -1042,16 +1380,19 @@ SELECT * FROM sessions WHERE id = $1 AND expires_at > NOW();
 ### フロントエンドパフォーマンス
 
 **静的アセット**:
+
 - CSS/JS ファイルは最小化 (本番環境)
 - ブラウザキャッシュ活用
 - CDN 利用可能 (将来)
 
 **レンダリング**:
+
 - EJS テンプレートキャッシュ (本番環境で自動)
 - 必要なデータのみ取得
 - 非同期処理でブロッキング回避
 
 **クライアント側**:
+
 - Intersection Observer で遅延アニメーション
 - イベントデリゲーション
 - 不要な再レンダリング回避
@@ -1081,6 +1422,7 @@ CREATE TABLE email_verification_tokens (
 - メール送信サービス統合 (SendGrid, AWS SES 等)
 
 **テンプレート**:
+
 ```html
 <!-- views/auth/verify-email.ejs -->
 <h1>Verify Your Email</h1>
@@ -1107,6 +1449,7 @@ VALUES ('user_001', 'github', '12345');
 - 連携解除機能
 
 **テンプレート**:
+
 ```html
 <!-- views/profile.ejs に追加 -->
 <div class="section">
@@ -1137,6 +1480,7 @@ CREATE TABLE password_reset_tokens (
 4. 新しいパスワード設定
 
 **テンプレート**:
+
 ```html
 <!-- views/auth/forgot-password.ejs -->
 <!-- views/auth/reset-password.ejs -->
@@ -1164,11 +1508,12 @@ CREATE TABLE two_factor_auth (
 - SMS 認証 (オプション)
 
 **テンプレート**:
+
 ```html
 <!-- views/settings/two-factor.ejs -->
 <h2>Two-Factor Authentication</h2>
-<img src="/qrcode" alt="QR Code">
-<input type="text" placeholder="Enter 6-digit code">
+<img src="/qrcode" alt="QR Code" />
+<input type="text" placeholder="Enter 6-digit code" />
 ```
 
 ### 5. ソーシャルログイン追加
@@ -1233,18 +1578,20 @@ CREATE TABLE audit_logs (
 - アカウント連携/解除
 
 **テンプレート**:
+
 ```html
 <!-- views/settings/activity.ejs -->
 <h2>Recent Activity</h2>
 <% loginLogs.forEach(log => { %>
-  <div class="activity-item">
-    <p><%= log.provider %> login from <%= log.ip_address %></p>
-    <small><%= formatDateTime(log.created_at) %></small>
-  </div>
+<div class="activity-item">
+  <p><%= log.provider %> login from <%= log.ip_address %></p>
+  <small><%= formatDateTime(log.created_at) %></small>
+</div>
 <% }); %>
 ```
 
 ### 7. ユーザー管理画面 (管理者用)
+
 ```sql
 -- ロールテーブル
 CREATE TABLE roles (
@@ -1263,6 +1610,7 @@ CREATE TABLE user_roles (
 ```
 
 **機能**:
+
 - ユーザー一覧
 - ユーザー検索
 - アカウント停止/有効化
@@ -1270,6 +1618,7 @@ CREATE TABLE user_roles (
 - 統計ダッシュボード
 
 **テンプレート**:
+
 ```html
 <!-- views/admin/users.ejs -->
 <h1>User Management</h1>
@@ -1284,14 +1633,14 @@ CREATE TABLE user_roles (
   </thead>
   <tbody>
     <% users.forEach(user => { %>
-      <tr>
-        <td><%= user.username %></td>
-        <td><%= user.email %></td>
-        <td><%= user.status %></td>
-        <td>
-          <a href="/admin/users/<%= user.id %>">View</a>
-        </td>
-      </tr>
+    <tr>
+      <td><%= user.username %></td>
+      <td><%= user.email %></td>
+      <td><%= user.status %></td>
+      <td>
+        <a href="/admin/users/<%= user.id %>">View</a>
+      </td>
+    </tr>
     <% }); %>
   </tbody>
 </table>
@@ -1300,29 +1649,30 @@ CREATE TABLE user_roles (
 ### 8. プロフィール編集
 
 現在は Preferences のみ更新可能。拡張:
+
 ```html
 <!-- views/profile-edit.ejs -->
 <form method="POST" action="/profile/update">
   <div class="form-group">
     <label>Username:</label>
-    <input type="text" name="username" value="<%= user.username %>">
+    <input type="text" name="username" value="<%= user.username %>" />
   </div>
-  
+
   <div class="form-group">
     <label>Bio:</label>
     <textarea name="bio"><%= user.profile.bio %></textarea>
   </div>
-  
+
   <div class="form-group">
     <label>Location:</label>
-    <input type="text" name="location" value="<%= user.profile.location %>">
+    <input type="text" name="location" value="<%= user.profile.location %>" />
   </div>
-  
+
   <div class="form-group">
     <label>Website:</label>
-    <input type="url" name="website" value="<%= user.profile.website %>">
+    <input type="url" name="website" value="<%= user.profile.website %>" />
   </div>
-  
+
   <button type="submit" class="btn btn-primary">Update Profile</button>
 </form>
 ```
@@ -1330,6 +1680,7 @@ CREATE TABLE user_roles (
 ### 9. テーマシステムの拡張
 
 現在は Light/Dark のみ。拡張:
+
 ```javascript
 // preferences に追加
 preferences: {
@@ -1341,10 +1692,11 @@ preferences: {
 ```
 
 **CSS Variables の動的適用**:
+
 ```html
 <style>
   :root {
-    --primary-color: <%= user.preferences.accentColor || '#0366d6' %>;
+    --primary-color: <%= user.preferences.accentColor || "#0366d6" %>;
   }
 </style>
 ```
@@ -1352,14 +1704,15 @@ preferences: {
 ### 10. API エンドポイント
 
 REST API 追加:
+
 ```javascript
 // src/routes/api.js
-router.get('/api/users/:id', requireAuth, async (req, res) => {
+router.get("/api/users/:id", requireAuth, async (req, res) => {
   const user = await UnifiedAuthService.getUserWithAuths(req.params.id);
   res.json(user);
 });
 
-router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
+router.put("/api/users/:id/preferences", requireAuth, async (req, res) => {
   const updated = await UnifiedAuthService.updatePreferences(
     req.params.id,
     req.body
@@ -1386,6 +1739,7 @@ router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
 ### 実装済みの主要機能
 
 **認証・認可**:
+
 - メール/パスワード認証
 - GitHub OAuth
 - Google OAuth
@@ -1394,6 +1748,7 @@ router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
 - XSS 対策
 
 **データ管理**:
+
 - Repository パターン
 - Factory パターン
 - トランザクション対応
@@ -1401,6 +1756,7 @@ router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
 - メモリ版 (テスト用)
 
 **UI/UX**:
+
 - EJS テンプレートエンジン
 - レスポンシブデザイン
 - クライアント側バリデーション
@@ -1408,11 +1764,12 @@ router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
 - アクセシビリティ対応
 
 **開発体験**:
+
 - Hot Reload (--watch)
 - デバッグエンドポイント
 - 明確な責務分離
 - 拡張しやすい構造
 
-Repository パターン、Factory パターン、MVC パターンにより、保守性とテスト容易性の高いコードベースを実現しています。メモリと PostgreSQL を環境変数で簡単に切り替えられるため、開発からテスト、本番環境まで同じコードで対応できます。
+Repository パターン、Factory パターン、MVC パターンにより、保守性とテスト容易性の高いコードベースを実現しています。メモリと PostgreSQL を環境変数で簡単に切り替えられるため、開発からテスト、本番環境まで同じコードで対応できる。
 
-EJS テンプレートエンジンの導入により、ビューとロジックの分離が明確になり、チーム開発やデザイン変更が容易になりました。
+EJS テンプレートエンジンの導入により、ビューとロジックの分離が明確になり、チーム開発やデザイン変更が容易になる。

@@ -13,6 +13,9 @@ OAuth 2.0 とメール/パスワード認証の実装練習プロジェクト
 - ✅ PostgreSQL データベース
 - ✅ EJS テンプレートエンジン
 - ✅ レスポンシブデザイン
+- ✅ セキュリティヘッダー (Helmet)
+- ✅ レート制限
+- ✅ CSRF 対策
 
 ## ドキュメント
 
@@ -77,6 +80,9 @@ GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
 # Session
 SESSION_MAX_AGE=86400000
 
+# CSRF（本番環境では必ず設定）
+CSRF_SECRET=your_csrf_secret_here
+
 # Database
 USE_DATABASE=true
 DATABASE_URL=postgresql://oauth_user:oauth_password@localhost:5432/oauth_practice
@@ -133,6 +139,7 @@ src/
 │   └── connection.js                      # PostgreSQL 接続プール
 ├── middleware/
 │   ├── auth.js                            # 認証ミドルウェア
+│   ├── csrf.js                            # CSRF ミドルウェア
 │   └── viewHelpers.js                     # ビューヘルパー
 └── routes/
     ├── auth.js                            # OAuth ルート
@@ -191,6 +198,7 @@ USE_DATABASE=false → Memory Repository
 環境変数を変更するだけで、メモリとデータベースを簡単に切り替えられます。
 
 ### MVC パターン
+
 ```
 View (EJS)
    ↓
@@ -217,16 +225,19 @@ Model (PostgreSQL / Memory)
 ### ページ一覧
 
 1. **ホームページ** (`/`)
+
    - OAuth ログインボタン
    - メール/パスワードログインリンク
    - ログイン状態の表示
 
 2. **サインアップ** (`/local/signup`)
+
    - ユーザー名、メール、パスワード入力
    - クライアント側バリデーション
    - OAuth オプション
 
 3. **サインイン** (`/local/signin`)
+
    - メール、パスワード入力
    - エラーメッセージ表示
    - OAuth オプション
@@ -257,6 +268,190 @@ user@example.com で Google ログイン      → アカウントB (別アカウ
 - 主要サービス(Claude, Slack, Discord 等)と同じパターン
 
 詳細は [ARCHITECTURE.md](./ARCHITECTURE.md) の「認証パターン」を参照してください。
+
+---
+
+## セキュリティ
+
+このアプリケーションには以下のセキュリティ機能が実装されています。
+
+### セキュリティヘッダー (Helmet)
+
+```
+Content-Security-Policy: default-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com https://lh3.googleusercontent.com
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+```
+
+### レート制限
+
+| エンドポイント  | 制限         | 説明                     |
+| --------------- | ------------ | ------------------------ |
+| 全体            | 100 回/15 分 | 一般的なリクエスト制限   |
+| `/local/signin` | 10 回/15 分  | ブルートフォース攻撃対策 |
+| `/local/signup` | 10 回/15 分  | スパム登録対策           |
+| `/auth/*`       | 10 回/15 分  | OAuth 乱用対策           |
+
+※開発環境 (`NODE_ENV=development`) ではレート制限はスキップされます。
+
+### CSRF 対策
+
+Double Submit Cookie パターンを使用：
+
+1. サーバーが CSRF トークンを生成
+2. トークンを Cookie (`__csrf`) に保存
+3. フォームの hidden フィールド (`_csrf`) にも埋め込む
+4. POST 送信時、両者を比較
+5. 一致すれば正当なリクエスト
+
+### Cookie 設定
+
+```javascript
+{
+  httpOnly: true,      // JavaScript からアクセス不可
+  secure: true,        // HTTPS のみ（本番環境）
+  sameSite: 'lax',     // クロスサイトリクエストで送信されない
+  maxAge: 86400000     // 24時間
+}
+```
+
+### 入力バリデーション
+
+| フィールド   | ルール                                           |
+| ------------ | ------------------------------------------------ |
+| Email        | 正規表現による形式チェック、小文字正規化         |
+| Password     | 6〜128 文字                                      |
+| Username     | 3〜50 文字、英数字・アンダースコア・ハイフンのみ |
+| 全フィールド | 最大 255 文字、前後の空白をトリム                |
+
+### その他のセキュリティ対策
+
+- ✅ パスワードは bcrypt でハッシュ化(saltRounds=10)
+- ✅ セッションは HttpOnly Cookie
+- ✅ セッションは PostgreSQL に永続化
+- ✅ CSRF 対策(State パラメータ + Double Submit Cookie)
+- ✅ パラメータ化クエリ(SQL インジェクション対策)
+- ✅ トランザクションでデータ整合性を保証
+- ✅ パスワードハッシュは外部に公開しない
+- ✅ OAuth アクセストークンは使い捨て(保存しない)
+- ✅ XSS 対策(EJS の自動エスケープ)
+
+---
+
+## 環境変数
+
+### 必須の環境変数
+
+```bash
+# サーバー設定
+PORT=3000
+NODE_ENV=production
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GITHUB_REDIRECT_URI=https://your-domain.com/auth/github/callback
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=https://your-domain.com/auth/google/callback
+
+# セキュリティ
+CSRF_SECRET=your_csrf_secret_here
+
+# セッション
+SESSION_MAX_AGE=86400000
+```
+
+### データベース設定（PostgreSQL 使用時）
+
+```bash
+USE_DATABASE=true
+DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
+```
+
+### シークレットの生成方法
+
+```bash
+# CSRF_SECRET の生成
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+---
+
+## 本番環境へのデプロイ
+
+### 事前準備
+
+1. **GitHub OAuth App の作成**
+
+   - https://github.com/settings/developers
+   - Authorization callback URL: `https://your-domain.com/auth/github/callback`
+
+2. **Google OAuth Client の作成**
+
+   - https://console.cloud.google.com
+   - 承認済みリダイレクト URI: `https://your-domain.com/auth/google/callback`
+
+3. **PostgreSQL データベースの準備**（任意）
+   - 多くの PaaS で自動提供
+
+### Render へのデプロイ（推奨）
+
+1. https://render.com でアカウント作成
+2. New > Web Service
+3. GitHub リポジトリを接続
+4. 設定:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+5. Environment Variables を設定
+6. Create Web Service
+
+**注意**: Render の無料枠は 15 分間アクセスがないとスリープします。GitHub Actions でスリープを防ぐことができます。
+
+### Railway へのデプロイ
+
+```bash
+# 1. Railway CLI のインストール
+npm install -g @railway/cli
+
+# 2. ログイン
+railway login
+
+# 3. プロジェクト作成
+railway init
+
+# 4. 環境変数の設定
+railway variables set NODE_ENV=production
+railway variables set GITHUB_CLIENT_ID=xxx
+# ... 他の環境変数も同様に設定
+
+# 5. デプロイ
+railway up
+```
+
+### ヘルスチェック
+
+アプリケーションの状態を確認できます：
+
+```bash
+curl https://your-domain.com/health
+```
+
+レスポンス例：
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "environment": "production",
+  "storage": "postgres"
+}
+```
+
+---
 
 ## 開発
 
@@ -310,18 +505,6 @@ TRUNCATE sessions RESTART IDENTITY CASCADE;
 \q
 ```
 
-## セキュリティ
-
-- ✅ パスワードは bcrypt でハッシュ化(saltRounds=10)
-- ✅ セッションは HttpOnly Cookie
-- ✅ セッションは PostgreSQL に永続化
-- ✅ CSRF 対策(State パラメータ)
-- ✅ パラメータ化クエリ(SQL インジェクション対策)
-- ✅ トランザクションでデータ整合性を保証
-- ✅ パスワードハッシュは外部に公開しない
-- ✅ OAuth アクセストークンは使い捨て(保存しない)
-- ✅ XSS 対策(EJS の自動エスケープ)
-
 ## データベース
 
 ### PostgreSQL (推奨)
@@ -360,6 +543,7 @@ USE_DATABASE=false  # メモリ
 - **自動エスケープ**: XSS 対策
 
 ### テンプレートの構造
+
 ```
 layouts/main.ejs       ← 共通レイアウト
    ↓ include
@@ -387,6 +571,8 @@ auth/signin.ejs
 10. EJS テンプレートエンジン
 11. レスポンシブ Web デザイン
 12. クライアント側バリデーション
+13. セキュリティミドルウェア (Helmet, Rate Limit, CSRF)
+14. 本番環境へのデプロイ
 
 ## トラブルシューティング
 
@@ -424,6 +610,7 @@ cat .env | grep USE_DATABASE
 ```
 
 ### CSS が反映されない
+
 ```bash
 # ブラウザのキャッシュをクリア
 # Chrome: Ctrl+Shift+R (Windows) / Cmd+Shift+R (Mac)
@@ -431,3 +618,27 @@ cat .env | grep USE_DATABASE
 # サーバーを再起動
 # Ctrl+C で停止後、npm run dev
 ```
+
+### OAuth コールバックエラー
+
+**症状**: OAuth ログイン後に「Invalid state」エラー
+
+**原因**: コールバック URL の不一致
+
+**解決策**:
+
+1. GitHub/Google の設定で正確なコールバック URL を確認
+2. 環境変数 `GITHUB_REDIRECT_URI` / `GOOGLE_REDIRECT_URI` を確認
+3. URL の末尾のスラッシュに注意（`/callback` vs `/callback/`）
+
+### CSRF トークンエラー
+
+**症状**: フォーム送信時に 403 Forbidden
+
+**原因**: CSRF トークンが無効または期限切れ
+
+**解決策**:
+
+1. ページをリロードして新しいトークンを取得
+2. Cookie が有効になっているか確認
+3. 本番環境で `CSRF_SECRET` が設定されているか確認
