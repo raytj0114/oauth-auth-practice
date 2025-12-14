@@ -312,14 +312,14 @@ helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: [
         "'self'",
-        "data:",
-        "https://avatars.githubusercontent.com",
-        "https://lh3.googleusercontent.com",
+        'data:',
+        'https://avatars.githubusercontent.com',
+        'https://lh3.googleusercontent.com',
       ],
     },
   },
   crossOriginEmbedderPolicy: false, // 外部画像許可
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 });
 ```
 
@@ -330,14 +330,14 @@ helmet({
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 100, // 100リクエスト
-  skip: () => NODE_ENV === "development",
+  skip: () => NODE_ENV === 'development',
 });
 
 // 認証関連の厳しい制限
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 10, // 10リクエスト
-  skip: () => NODE_ENV === "development",
+  skip: () => NODE_ENV === 'development',
 });
 ```
 
@@ -567,11 +567,9 @@ sessions: Map/Table {
 ### なぜ安全か
 
 1. **攻撃者は Cookie を読めない**
-
    - Same-Origin Policy により、他サイトからの Cookie アクセスは不可
 
 2. **攻撃者は正しいトークンを送れない**
-
    - フォームに埋め込むトークンを知らない
    - Cookie の値も読めない
 
@@ -582,9 +580,9 @@ sessions: Map/Table {
 
 ```javascript
 const csrfExcludedPaths = [
-  "/health", // ヘルスチェック（GET のみ）
-  "/auth/github/callback", // GitHub OAuth コールバック
-  "/auth/google/callback", // Google OAuth コールバック
+  '/health', // ヘルスチェック（GET のみ）
+  '/auth/github/callback', // GitHub OAuth コールバック
+  '/auth/google/callback', // Google OAuth コールバック
 ];
 ```
 
@@ -682,12 +680,12 @@ OAuth フローで State パラメータを使用:
 
 ```javascript
 // 認証開始時
-const state = crypto.randomBytes(16).toString("hex");
+const state = crypto.randomBytes(16).toString('hex');
 pendingStates.set(state, { provider, createdAt });
 
 // コールバック時
 if (!pendingStates.has(state)) {
-  throw new Error("Invalid state");
+  throw new Error('Invalid state');
 }
 ```
 
@@ -700,7 +698,7 @@ if (!pendingStates.has(state)) {
 - **自動クリーンアップ**: 期限切れセッションを定期削除
 
 ```javascript
-res.cookie("sessionId", sessionId, {
+res.cookie('sessionId', sessionId, {
   httpOnly: true, // XSS 対策
   secure: true, // 本番環境では HTTPS のみ
   maxAge: 86400000, // 24時間
@@ -716,7 +714,7 @@ res.cookie("sessionId", sessionId, {
 await pool.query(`SELECT * FROM users WHERE email = '${email}'`);
 
 // ✅ 安全
-await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 ```
 
 ### XSS 対策
@@ -899,7 +897,7 @@ await DatabaseConnection.transaction(async (client) => {
 
 ```javascript
 // PostgreSQL使用時のみトランザクション
-if (USE_DATABASE === "true") {
+if (USE_DATABASE === 'true') {
   await registerWithTransaction();
 } else {
   // メモリはトランザクション不要
@@ -916,7 +914,7 @@ SQL インジェクション対策:
 query(`SELECT * FROM users WHERE email = '${email}'`);
 
 // ✅ 安全
-query("SELECT * FROM users WHERE email = $1", [email]);
+query('SELECT * FROM users WHERE email = $1', [email]);
 ```
 
 ### JSONB 型の活用
@@ -946,10 +944,10 @@ preferences: {
 // 方法1: JavaScript側でマージ
 const existing = await findById(userId);
 const updated = { ...existing.preferences, ...newPreferences };
-await query("UPDATE users SET preferences = $1", [JSON.stringify(updated)]);
+await query('UPDATE users SET preferences = $1', [JSON.stringify(updated)]);
 
 // 方法2: PostgreSQLのJSONB演算子
-await query("UPDATE users SET preferences = preferences || $1::jsonb", [
+await query('UPDATE users SET preferences = preferences || $1::jsonb', [
   JSON.stringify(newPreferences),
 ]);
 ```
@@ -1152,18 +1150,18 @@ res.locals.currentPath; // 現在のパス
 
 ```javascript
 // フォームバリデーション
-document.querySelector("form").addEventListener("submit", (e) => {
+document.querySelector('form').addEventListener('submit', (e) => {
   // バリデーションロジック
 });
 
 // テーマ変更ハンドリング
-themeSelect.addEventListener("change", () => {
+themeSelect.addEventListener('change', () => {
   // プレビュー表示
 });
 
 // Logout 確認
-logoutForm.addEventListener("submit", (e) => {
-  if (!confirm("Are you sure?")) {
+logoutForm.addEventListener('submit', (e) => {
+  if (!confirm('Are you sure?')) {
     e.preventDefault();
   }
 });
@@ -1188,12 +1186,12 @@ const observer = new IntersectionObserver((entries) => {
 
 ```javascript
 // src/routes/protected.js
-router.get("/profile", requireAuth, async (req, res) => {
+router.get('/profile', requireAuth, async (req, res) => {
   // 1. Service層からデータ取得
   const user = await UnifiedAuthService.getUserWithAuths(req.user.id);
 
   // 2. ビューをレンダリング
-  res.render("profile", {
+  res.render('profile', {
     title: `Profile - ${user.username}`,
     user,
     linkedProviders: user.linkedProviders || [],
@@ -1696,7 +1694,7 @@ preferences: {
 ```html
 <style>
   :root {
-    --primary-color: <%= user.preferences.accentColor || "#0366d6" %>;
+    --primary-color: <%= user.preferences.accentColor || '#0366d6' %>;
   }
 </style>
 ```
@@ -1707,16 +1705,13 @@ REST API 追加:
 
 ```javascript
 // src/routes/api.js
-router.get("/api/users/:id", requireAuth, async (req, res) => {
+router.get('/api/users/:id', requireAuth, async (req, res) => {
   const user = await UnifiedAuthService.getUserWithAuths(req.params.id);
   res.json(user);
 });
 
-router.put("/api/users/:id/preferences", requireAuth, async (req, res) => {
-  const updated = await UnifiedAuthService.updatePreferences(
-    req.params.id,
-    req.body
-  );
+router.put('/api/users/:id/preferences', requireAuth, async (req, res) => {
+  const updated = await UnifiedAuthService.updatePreferences(req.params.id, req.body);
   res.json(updated);
 });
 ```

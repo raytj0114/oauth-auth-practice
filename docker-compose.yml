@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 # サービス(コンテナ)の定義
 services:
@@ -20,7 +20,7 @@ services:
 
     # ポートのマッピング設定 (ホスト:コンテナ)
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
     # ボリュームのマウント設定
     volumes:
@@ -33,7 +33,7 @@ services:
     healthcheck:
       # ヘルスチェックで実行するコマンドを指定
       # CMD-SHELL形式でシェルコマンドを実行し、pg_isreadyでPostgreSQLの接続可否を確認
-      test: ["CMD-SHELL", "pg_isready -U oauth_user -d oauth_practice"]
+      test: ['CMD-SHELL', 'pg_isready -U oauth_user -d oauth_practice']
       # ヘルスチェックを実行する間隔（10秒ごとにチェック）
       interval: 10s
       # 各ヘルスチェックのタイムアウト時間（5秒以内に応答がなければ失敗とみなす）

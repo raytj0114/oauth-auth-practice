@@ -24,9 +24,9 @@ services:
       - key: CSRF_SECRET
         generateValue: true
       - key: SESSION_MAX_AGE
-        value: "86400000"
+        value: '86400000'
       - key: USE_DATABASE
-        value: "false"
+        value: 'false'
 
 databases:
   - name: oauth-db

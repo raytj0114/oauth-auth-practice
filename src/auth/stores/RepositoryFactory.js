@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * 
+ *
  * 環境変数(USE_DATABASE)に応じて、
  * メモリ版 or PostgreSQL版 のRepositoryを返す
  */
@@ -25,7 +25,8 @@ class RepositoryFactory {
 
     if (this.useDatabase) {
       // PostgreSQL版
-      const { default: PostgresUserRepository } = await import('./postgres/PostgresUserRepository.js');
+      const { default: PostgresUserRepository } =
+        await import('./postgres/PostgresUserRepository.js');
       this.userRepository = new PostgresUserRepository();
       console.log('[RepositoryFactory] Using PostgresUserRepository');
     } else {
@@ -48,7 +49,8 @@ class RepositoryFactory {
 
     if (this.useDatabase) {
       // PostgreSQL版
-      const { default: PostgresAuthRepository } = await import('./postgres/PostgresAuthRepository.js');
+      const { default: PostgresAuthRepository } =
+        await import('./postgres/PostgresAuthRepository.js');
       this.authRepository = new PostgresAuthRepository();
       console.log('[RepositoryFactory] Using PostgresAuthRepository');
     } else {
@@ -73,7 +75,8 @@ class RepositoryFactory {
 
     if (this.useDatabase) {
       // PostgreSQL版
-      const { default: PostgresSessionRepository } = await import('./postgres/PostgresSessionRepository.js');
+      const { default: PostgresSessionRepository } =
+        await import('./postgres/PostgresSessionRepository.js');
       this.sessionRepository = new PostgresSessionRepository(maxAge);
       console.log('[RepositoryFactory] Using PostgresSessionRepository');
     } else {

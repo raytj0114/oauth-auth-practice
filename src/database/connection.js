@@ -7,7 +7,7 @@ const { Pool } = pg;
 
 /**
  * PostgreSQL接続プール
- * 
+ *
  * プールとは:
  * - データベース接続を使い回す仕組み
  * - 毎回接続を作るとコストが高い
@@ -61,7 +61,7 @@ class DatabaseConnection {
 
   /**
    * クエリを実行
-   * 
+   *
    * @param {string} text - SQL文
    * @param {Array} params - パラメータ($1, $2, ...)
    * @returns {Promise<Object>} クエリ結果
@@ -81,11 +81,11 @@ class DatabaseConnection {
 
   /**
    * トランザクション実行
-   * 
+   *
    * トランザクションとは:
    * - 複数のクエリをまとめて実行
    * - すべて成功 or すべて失敗(中途半端な状態を防ぐ)
-   * 
+   *
    * @param {Function} callback - トランザクション内で実行する処理
    */
   async transaction(callback) {

@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // フォーカス時のアニメーション
   const inputs = document.querySelectorAll('input');
-  inputs.forEach(input => {
+  inputs.forEach((input) => {
     input.addEventListener('focus', () => {
       input.parentElement.classList.add('focused');
     });
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Logout の確認
   const logoutForms = document.querySelectorAll('form[action="/auth/logout"]');
-  logoutForms.forEach(form => {
+  logoutForms.forEach((form) => {
     form.addEventListener('submit', (e) => {
       if (!confirm('Are you sure you want to logout?')) {
         e.preventDefault();
@@ -105,11 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const sections = document.querySelectorAll('.section');
   const observerOptions = {
     threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    rootMargin: '0px 0px -50px 0px',
   };
 
   const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       if (entry.isIntersecting) {
         entry.target.style.opacity = '1';
         entry.target.style.transform = 'translateY(0)';
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, observerOptions);
 
-  sections.forEach(section => {
+  sections.forEach((section) => {
     section.style.opacity = '0';
     section.style.transform = 'translateY(20px)';
     section.style.transition = 'opacity 0.5s, transform 0.5s';

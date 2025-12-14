@@ -25,19 +25,19 @@ class UserRepository {
       email: email,
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
-      
+
       // アプリ固有のデータ
       preferences: {
         theme: 'light',
         language: 'ja',
-        notifications: true
+        notifications: true,
       },
       profile: {
         bio: '',
         avatarUrl: avatarUrl,
         location: '',
-        website: ''
-      }
+        website: '',
+      },
     };
 
     this.users.set(userId, user);

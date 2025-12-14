@@ -5,9 +5,9 @@ import SessionManager from '../auth/SessionManager.js';
  */
 export async function requireAuth(req, res, next) {
   console.log('[Auth Middleware] Checking authentication...');
-  
+
   const sessionId = req.cookies.sessionId;
-  
+
   if (!sessionId) {
     console.log('[Auth Middleware] No session ID found');
     return res.redirect('/local/signin');
@@ -23,7 +23,7 @@ export async function requireAuth(req, res, next) {
     }
 
     console.log('[Auth Middleware] Session valid for user:', session.userData.username);
-    
+
     // ユーザー情報をリクエストに追加
     req.user = session.userData;
     console.log(`[Auth Middleware] Authenticated as ${req.user.username}`);

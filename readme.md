@@ -225,19 +225,16 @@ Model (PostgreSQL / Memory)
 ### ページ一覧
 
 1. **ホームページ** (`/`)
-
    - OAuth ログインボタン
    - メール/パスワードログインリンク
    - ログイン状態の表示
 
 2. **サインアップ** (`/local/signup`)
-
    - ユーザー名、メール、パスワード入力
    - クライアント側バリデーション
    - OAuth オプション
 
 3. **サインイン** (`/local/signin`)
-
    - メール、パスワード入力
    - エラーメッセージ表示
    - OAuth オプション
@@ -386,12 +383,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### 事前準備
 
 1. **GitHub OAuth App の作成**
-
    - https://github.com/settings/developers
    - Authorization callback URL: `https://your-domain.com/auth/github/callback`
 
 2. **Google OAuth Client の作成**
-
    - https://console.cloud.google.com
    - 承認済みリダイレクト URI: `https://your-domain.com/auth/google/callback`
 

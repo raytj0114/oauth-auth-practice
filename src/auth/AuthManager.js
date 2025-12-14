@@ -32,7 +32,7 @@ class AuthManager {
     const state = this.generateState();
     this.pendingStates.set(state, {
       provider: providerName,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     });
 
     // 古いstateをクリーンアップ(5分以上前)
@@ -63,10 +63,7 @@ class AuthManager {
     const oauthUserInfo = await provider.getUserInfo(accessToken);
 
     // ログインまたは登録
-    const user = await UnifiedAuthService.loginOrRegisterOAuth(
-      providerName,
-      oauthUserInfo
-    );
+    const user = await UnifiedAuthService.loginOrRegisterOAuth(providerName, oauthUserInfo);
 
     // セッション生成
     const sessionId = await SessionManager.create(user.id, user);
@@ -78,7 +75,7 @@ class AuthManager {
 
   // 古いstateのクリーンアップ
   cleanupOldStates() {
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     for (const [state, data] of this.pendingStates) {
       if (data.createdAt < fiveMinutesAgo) {
         this.pendingStates.delete(state);

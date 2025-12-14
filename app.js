@@ -17,10 +17,10 @@ import authRoutes from './src/routes/auth.js';
 import localAuthRoutes from './src/routes/local-auth.js';
 import protectedRoutes from './src/routes/protected.js';
 import { viewHelpers } from './src/middleware/viewHelpers.js';
-import { 
-  doubleCsrfProtection, 
-  csrfTokenMiddleware, 
-  csrfErrorHandler 
+import {
+  doubleCsrfProtection,
+  csrfTokenMiddleware,
+  csrfErrorHandler,
 } from './src/middleware/csrf.js';
 
 dotenv.config();
@@ -39,20 +39,27 @@ const USE_DATABASE = process.env.USE_DATABASE === 'true';
 // ===== セキュリティミドルウェア =====
 
 // Helmet: セキュリティヘッダーを設定
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https://avatars.githubusercontent.com', 'https://lh3.googleusercontent.com'],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://avatars.githubusercontent.com',
+          'https://lh3.googleusercontent.com',
+        ],
+      },
     },
-  },
-  // COEP を無効化: 外部画像（GitHub/Google アバター）の読み込みを許可
-  crossOriginEmbedderPolicy: false,
-  // CORP ヘッダーも調整
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}));
+    // COEP を無効化: 外部画像（GitHub/Google アバター）の読み込みを許可
+    crossOriginEmbedderPolicy: false,
+    // CORP ヘッダーも調整
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // レート制限: 全体のリクエスト制限
 const generalLimiter = rateLimit({
@@ -68,7 +75,7 @@ const generalLimiter = rateLimit({
       ...res.locals,
       title: 'Too Many Requests',
       errorCode: 429,
-      message: 'Too many requests from this IP. Please try again later.'
+      message: 'Too many requests from this IP. Please try again later.',
     });
   },
 });
@@ -87,7 +94,7 @@ const authLimiter = rateLimit({
       ...res.locals,
       title: 'Too Many Attempts',
       errorCode: 429,
-      message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
+      message: 'Too many authentication attempts. Please wait 15 minutes before trying again.',
     });
   },
 });
@@ -120,11 +127,7 @@ app.use(viewHelpers);
 app.use(csrfTokenMiddleware); // 全リクエストでトークンを生成
 
 // CSRF 保護が不要なルート（OAuth コールバック、ヘルスチェック）
-const csrfExcludedPaths = [
-  '/health',
-  '/auth/github/callback',
-  '/auth/google/callback',
-];
+const csrfExcludedPaths = ['/health', '/auth/github/callback', '/auth/google/callback'];
 
 // CSRF 検証ミドルウェア（POST リクエストのみ、除外パス以外）
 app.use((req, res, next) => {
@@ -132,12 +135,12 @@ app.use((req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     return next();
   }
-  
+
   // 除外パスは検証しない
-  if (csrfExcludedPaths.some(path => req.path.startsWith(path))) {
+  if (csrfExcludedPaths.some((path) => req.path.startsWith(path))) {
     return next();
   }
-  
+
   // CSRF 検証を実行
   doubleCsrfProtection(req, res, next);
 });
@@ -162,7 +165,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
-    storage: RepositoryFactory.getStorageType()
+    storage: RepositoryFactory.getStorageType(),
   });
 });
 
@@ -186,17 +189,23 @@ await UnifiedAuthService.initialize();
 await SessionManager.initialize();
 
 // OAuth プロバイダー登録(環境変数から設定を渡す)
-AuthManager.registerProvider('github', new GitHubProvider({
-  clientId: process.env.GITHUB_CLIENT_ID,
-  clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  redirectUri: process.env.GITHUB_REDIRECT_URI
-}));
+AuthManager.registerProvider(
+  'github',
+  new GitHubProvider({
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    redirectUri: process.env.GITHUB_REDIRECT_URI,
+  })
+);
 
-AuthManager.registerProvider('google', new GoogleProvider({
-  clientId: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri: process.env.GOOGLE_REDIRECT_URI
-}));
+AuthManager.registerProvider(
+  'google',
+  new GoogleProvider({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI,
+  })
+);
 
 // ===== 認証関連ルートにレート制限を適用 =====
 app.use('/local/signin', authLimiter);
@@ -213,18 +222,18 @@ app.get('/', async (req, res) => {
   // セッションチェック
   let user = null;
   const sessionId = req.cookies.sessionId;
-  
+
   if (sessionId) {
     const session = await SessionManager.get(sessionId);
     if (session) {
       user = session.userData;
     }
   }
-  
+
   res.render('home', {
     title: 'OAuth Practice',
     user,
-    error: req.query.error || null
+    error: req.query.error || null,
   });
 });
 
@@ -243,9 +252,7 @@ if (NODE_ENV === 'development') {
           WHERE table_schema = 'public'
         `);
 
-        const userCount = await DatabaseConnection.query(
-          'SELECT COUNT(*) as count FROM users'
-        );
+        const userCount = await DatabaseConnection.query('SELECT COUNT(*) as count FROM users');
 
         const authCount = await DatabaseConnection.query(
           'SELECT COUNT(*) as count FROM authentications'
@@ -259,13 +266,13 @@ if (NODE_ENV === 'development') {
           storage: storageType,
           database: {
             connected: true,
-            tables: tables.rows.map(r => r.table_name),
+            tables: tables.rows.map((r) => r.table_name),
             counts: {
               users: userCount.rows[0].count,
               authentications: authCount.rows[0].count,
-              sessions: sessionCount.rows[0].count
-            }
-          }
+              sessions: sessionCount.rows[0].count,
+            },
+          },
         });
       } else {
         // メモリ: Repository の debug() を使用
@@ -281,7 +288,7 @@ if (NODE_ENV === 'development') {
 
         res.json({
           storage: storageType,
-          message: 'Debug info logged to console'
+          message: 'Debug info logged to console',
         });
       }
     } catch (error) {
@@ -304,7 +311,7 @@ if (NODE_ENV === 'development') {
 
       res.json({
         success: true,
-        message: 'Database reset completed'
+        message: 'Database reset completed',
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -324,17 +331,13 @@ if (NODE_ENV === 'development') {
       );
 
       // サンプルユーザー2: ローカル認証
-      const user2 = await UnifiedAuthService.registerLocal(
-        'bob@example.com',
-        'password456',
-        'bob'
-      );
+      const user2 = await UnifiedAuthService.registerLocal('bob@example.com', 'password456', 'bob');
 
       console.log('[Debug] Sample data created');
 
       res.json({
         success: true,
-        users: [user1, user2]
+        users: [user1, user2],
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -348,7 +351,7 @@ app.use((req, res) => {
     ...res.locals,
     title: 'Page Not Found',
     errorCode: 404,
-    message: 'The page you are looking for does not exist.'
+    message: 'The page you are looking for does not exist.',
   });
 });
 
@@ -358,17 +361,18 @@ app.use(csrfErrorHandler);
 // ===== グローバルエラーハンドリング =====
 app.use((err, req, res, _next) => {
   console.error('Server error:', err);
-  
+
   // 本番環境ではエラー詳細を隠す
-  const errorMessage = NODE_ENV === 'development' 
-    ? err.message 
-    : 'An unexpected error occurred. Please try again later.';
-  
+  const errorMessage =
+    NODE_ENV === 'development'
+      ? err.message
+      : 'An unexpected error occurred. Please try again later.';
+
   res.status(500).render('error', {
     ...res.locals,
     title: 'Server Error',
     errorCode: 500,
-    message: errorMessage
+    message: errorMessage,
   });
 });
 

@@ -20,7 +20,7 @@ class GoogleProvider {
       response_type: 'code',
       scope: this.scope,
       state: state,
-      prompt: 'select_account'
+      prompt: 'select_account',
     });
 
     const url = `${this.authUrl}?${params.toString()}`;
@@ -39,15 +39,15 @@ class GoogleProvider {
       client_id: this.clientId,
       client_secret: this.clientSecret,
       redirect_uri: this.redirectUri,
-      grant_type: 'authorization_code'
+      grant_type: 'authorization_code',
     });
 
     const response = await fetch(this.tokenUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: params.toString()
+      body: params.toString(),
     });
 
     if (!response.ok) {
@@ -68,8 +68,8 @@ class GoogleProvider {
 
     const response = await fetch(this.userUrl, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     if (!response.ok) {
@@ -87,7 +87,7 @@ class GoogleProvider {
       username: user.name,
       email: user.email,
       avatarUrl: user.picture,
-      raw: user
+      raw: user,
     };
   }
 }
