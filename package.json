@@ -2,9 +2,14 @@
   "name": "oauth-auth-practice",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "node --watch app.js",
-    "start": "node app.js"
+    "start": "node app.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -17,5 +22,8 @@
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
   }
 }

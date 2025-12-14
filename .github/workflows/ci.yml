@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check build
+        run: npm run build --if-present
+
+      - name: Verify app starts
+        run: |
+          # 環境変数を設定してアプリが起動できることを確認
+          timeout 10s node app.js || code=$?
+          # timeout は 124 を返す（正常終了）
+          if [ "${code:-124}" -eq 124 ]; then
+            echo "✅ App started successfully"
+            exit 0
+          else
+            echo "❌ App failed to start"
+            exit 1
+          fi
+        env:
+          NODE_ENV: development
+          PORT: 3000
+          USE_DATABASE: "false"
+          GITHUB_CLIENT_ID: test_github_id
+          GITHUB_CLIENT_SECRET: test_github_secret
+          GITHUB_REDIRECT_URI: http://localhost:3000/auth/github/callback
+          GOOGLE_CLIENT_ID: test_google_id
+          GOOGLE_CLIENT_SECRET: test_google_secret
+          GOOGLE_REDIRECT_URI: http://localhost:3000/auth/google/callback
+          CSRF_SECRET: test_csrf_secret_for_ci_only
+          SESSION_MAX_AGE: "86400000"

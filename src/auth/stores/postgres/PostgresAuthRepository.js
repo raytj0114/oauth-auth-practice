@@ -80,7 +80,7 @@ class PostgresAuthRepository {
       const result = await DatabaseConnection.query(query, [email]);
 
       if (result.rows.length === 0) {
-        console.log(`[PostgresAuthRepository] No auth found for email`);
+        console.log('[PostgresAuthRepository] No auth found for email');
         return null;
       }
 
@@ -90,7 +90,7 @@ class PostgresAuthRepository {
       const isValid = await bcrypt.compare(password, auth.password_hash);
 
       if (!isValid) {
-        console.log(`[PostgresAuthRepository] Invalid password`);
+        console.log('[PostgresAuthRepository] Invalid password');
         return null;
       }
 

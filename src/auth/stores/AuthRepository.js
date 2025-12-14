@@ -79,7 +79,7 @@ class AuthRepository {
     
     const authIds = this.emailIndex.get(email);
     if (!authIds) {
-      console.log(`[AuthRepository] No auth found for email`);
+      console.log('[AuthRepository] No auth found for email');
       return null;
     }
 
@@ -98,7 +98,7 @@ class AuthRepository {
       }
     }
 
-    console.log(`[AuthRepository] Invalid password`);
+    console.log('[AuthRepository] Invalid password');
     return null;
   }
 
