@@ -72,7 +72,7 @@ class UnifiedAuthService {
    */
   async registerLocalWithTransaction(email, password, username) {
     try {
-      const result = await DatabaseConnection.transaction(async (client) => {
+      const result = await DatabaseConnection.transaction(async (_client) => {
         // 1. ユーザー作成
         const user = await this.userRepository.create({
           username: username,
@@ -130,7 +130,7 @@ class UnifiedAuthService {
     console.log(`[UnifiedAuthService] OAuth login/register: ${provider}`);
 
     // 既存の認証情報を検索
-    let userId = await this.authRepository.findUserByOAuth(
+    const userId = await this.authRepository.findUserByOAuth(
       provider,
       oauthUserInfo.providerId
     );
@@ -152,7 +152,7 @@ class UnifiedAuthService {
     }
 
     // 新規ユーザー作成
-    console.log(`[UnifiedAuthService] Creating new user for OAuth`);
+    console.log('[UnifiedAuthService] Creating new user for OAuth');
 
     const useDatabase = process.env.USE_DATABASE === 'true';
 
@@ -186,7 +186,7 @@ class UnifiedAuthService {
    */
   async registerOAuthWithTransaction(provider, oauthUserInfo) {
     try {
-      const result = await DatabaseConnection.transaction(async (client) => {
+      const result = await DatabaseConnection.transaction(async (_client) => {
         // 1. ユーザー作成
         const user = await this.userRepository.create({
           username: oauthUserInfo.username,

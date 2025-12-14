@@ -61,7 +61,7 @@ router.post('/profile/preferences', requireAuth, async (req, res) => {
       await SessionManager.updateUserData(sessionId, updatedUser);
     }
     
-    console.log(`[Profile] Theme updated successfully`);
+    console.log('[Profile] Theme updated successfully');
     
     // 成功メッセージ付きでリダイレクト
     res.redirect('/profile?success=Preferences updated successfully');

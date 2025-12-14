@@ -44,7 +44,7 @@ router.get('/:provider', async (req, res) => {
       return res.redirect('/?error=Unsupported authentication provider');
     }
 
-    console.log(`\n=== Authentication Flow Started ===`);
+    console.log('\n=== Authentication Flow Started ===');
     console.log(`Provider: ${provider}`);
 
     const authUrl = AuthManager.startAuthentication(provider);
@@ -63,7 +63,7 @@ router.get('/:provider/callback', async (req, res) => {
     const { provider } = req.params;
     const { code, state, error: oauthError } = req.query;
 
-    console.log(`\n=== Callback Received ===`);
+    console.log('\n=== Callback Received ===');
     console.log(`Provider: ${provider}`);
     console.log(`Code: ${code ? '✓' : '×'}`);
     console.log(`State: ${state}`);
@@ -80,7 +80,7 @@ router.get('/:provider/callback', async (req, res) => {
     }
 
     // 認証処理
-    const { sessionId, userInfo } = await AuthManager.handleCallback(
+    const { sessionId, _userInfo } = await AuthManager.handleCallback(
       provider,
       code,
       state
@@ -90,7 +90,7 @@ router.get('/:provider/callback', async (req, res) => {
     res.cookie('sessionId', sessionId, getCookieOptions());
 
     console.log(`Session created: ${sessionId}`);
-    console.log(`=== Authentication Complete ===\n`);
+    console.log('=== Authentication Complete ===\n');
 
     res.redirect('/profile');
   } catch (error) {

@@ -95,7 +95,7 @@ router.post('/signup', async (req, res) => {
     const email = sanitizeInput(req.body.email).toLowerCase();
     const password = req.body.password || ''; // パスワードはトリミングしない
 
-    console.log(`\n=== Sign Up Attempt ===`);
+    console.log('\n=== Sign Up Attempt ===');
     console.log(`Username: ${username}`);
     console.log(`Email: ${email}`);
 
@@ -131,7 +131,7 @@ router.post('/signup', async (req, res) => {
     res.cookie('sessionId', sessionId, getCookieOptions());
 
     console.log(`[SignUp] User registered and logged in: ${user.username}`);
-    console.log(`=== Sign Up Complete ===\n`);
+    console.log('=== Sign Up Complete ===\n');
 
     res.redirect('/profile');
   } catch (error) {
@@ -174,7 +174,7 @@ router.post('/signin', async (req, res) => {
     const email = sanitizeInput(req.body.email).toLowerCase();
     const password = req.body.password || '';
 
-    console.log(`\n=== Sign In Attempt ===`);
+    console.log('\n=== Sign In Attempt ===');
     console.log(`Email: ${email}`);
 
     // 入力チェック
@@ -202,7 +202,7 @@ router.post('/signin', async (req, res) => {
     res.cookie('sessionId', sessionId, getCookieOptions());
 
     console.log(`[SignIn] User logged in: ${user.username}`);
-    console.log(`=== Sign In Complete ===\n`);
+    console.log('=== Sign In Complete ===\n');
 
     res.redirect('/profile');
   } catch (error) {

@@ -45,13 +45,13 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https://avatars.githubusercontent.com", "https://lh3.googleusercontent.com"],
+      imgSrc: ["'self'", 'data:', 'https://avatars.githubusercontent.com', 'https://lh3.googleusercontent.com'],
     },
   },
   // COEP を無効化: 外部画像（GitHub/Google アバター）の読み込みを許可
   crossOriginEmbedderPolicy: false,
   // CORP ヘッダーも調整
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 // レート制限: 全体のリクエスト制限
@@ -356,7 +356,7 @@ app.use((req, res) => {
 app.use(csrfErrorHandler);
 
 // ===== グローバルエラーハンドリング =====
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Server error:', err);
   
   // 本番環境ではエラー詳細を隠す
@@ -378,7 +378,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 Environment: ${NODE_ENV}`);
   console.log(`💾 Storage: ${RepositoryFactory.getStorageType()}`);
-  console.log(`🔒 Security: helmet, rate-limit, CSRF enabled`);
+  console.log('🔒 Security: helmet, rate-limit, CSRF enabled');
   console.log(`${'='.repeat(50)}\n`);
 });
 
