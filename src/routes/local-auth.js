@@ -12,13 +12,13 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
  */
 function getCookieOptions() {
   const maxAge = parseInt(process.env.SESSION_MAX_AGE);
-  
+
   return {
     httpOnly: true, // JavaScriptからアクセス不可
     secure: NODE_ENV === 'production', // 本番環境ではHTTPSのみ
     sameSite: 'lax', // CSRF対策: 同一サイトからのリクエストのみ
     maxAge: isNaN(maxAge) ? 86400000 : maxAge, // デフォルト24時間
-    path: '/' // 全てのパスで有効
+    path: '/', // 全てのパスで有効
   };
 }
 
@@ -65,7 +65,10 @@ function validateUsername(username) {
   // 英数字、アンダースコア、ハイフンのみ許可
   const usernameRegex = /^[a-zA-Z0-9_-]+$/;
   if (!usernameRegex.test(username)) {
-    return { valid: false, message: 'Username can only contain letters, numbers, underscores, and hyphens' };
+    return {
+      valid: false,
+      message: 'Username can only contain letters, numbers, underscores, and hyphens',
+    };
   }
   return { valid: true };
 }
@@ -83,7 +86,7 @@ router.get('/signup', async (req, res) => {
 
   res.render('auth/signup', {
     title: 'Sign Up',
-    error: req.query.error || null
+    error: req.query.error || null,
   });
 });
 
@@ -136,16 +139,16 @@ router.post('/signup', async (req, res) => {
     res.redirect('/profile');
   } catch (error) {
     console.error('Signup error:', error);
-    
+
     // エラーメッセージを分かりやすく
     let errorMessage = error.message;
-    
+
     if (error.message.includes('already registered') || error.message.includes('already exists')) {
       errorMessage = 'This email is already registered. Please sign in instead.';
     } else if (error.message.includes('duplicate key')) {
       errorMessage = 'This email is already registered.';
     }
-    
+
     res.redirect(`/local/signup?error=${encodeURIComponent(errorMessage)}`);
   }
 });
@@ -160,10 +163,10 @@ router.get('/signin', async (req, res) => {
     console.log('[SignIn] User already authenticated, redirecting to profile');
     return res.redirect('/profile');
   }
-  
+
   res.render('auth/signin', {
     title: 'Sign In',
-    error: req.query.error || null
+    error: req.query.error || null,
   });
 });
 
@@ -207,12 +210,11 @@ router.post('/signin', async (req, res) => {
     res.redirect('/profile');
   } catch (error) {
     console.error('Signin error:', error);
-    
+
     // セキュリティ: 具体的なエラー内容を隠す(ユーザー列挙攻撃対策)
-    const safeErrorMessage = error.message === 'Invalid email or password' 
-      ? error.message 
-      : 'Invalid email or password';
-    
+    const safeErrorMessage =
+      error.message === 'Invalid email or password' ? error.message : 'Invalid email or password';
+
     res.redirect(`/local/signin?error=${encodeURIComponent(safeErrorMessage)}`);
   }
 });

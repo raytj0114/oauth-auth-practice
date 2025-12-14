@@ -34,7 +34,7 @@ class PostgresSessionRepository {
         sessionId,
         userId,
         JSON.stringify(userData),
-        expiresAt
+        expiresAt,
       ]);
 
       console.log(`[PostgresSessionRepository] Session created: ${sessionId}`);
@@ -73,7 +73,7 @@ class PostgresSessionRepository {
         userId: session.user_id,
         userData: session.data, // PostgreSQLが自動でパース
         createdAt: session.created_at.getTime(),
-        expiresAt: session.expires_at.getTime()
+        expiresAt: session.expires_at.getTime(),
       };
     } catch (error) {
       console.error('[PostgresSessionRepository] Get error:', error.message);
@@ -111,10 +111,7 @@ class PostgresSessionRepository {
     `;
 
     try {
-      const result = await DatabaseConnection.query(query, [
-        JSON.stringify(userData),
-        sessionId
-      ]);
+      const result = await DatabaseConnection.query(query, [JSON.stringify(userData), sessionId]);
 
       if (result.rows.length === 0) {
         console.log(`[PostgresSessionRepository] Session not found for update: ${sessionId}`);
@@ -153,7 +150,9 @@ class PostgresSessionRepository {
 
     try {
       const result = await DatabaseConnection.query(query, [userId]);
-      console.log(`[PostgresSessionRepository] Destroyed ${result.rowCount} sessions for user: ${userId}`);
+      console.log(
+        `[PostgresSessionRepository] Destroyed ${result.rowCount} sessions for user: ${userId}`
+      );
       return result.rowCount;
     } catch (error) {
       console.error('[PostgresSessionRepository] DestroyAllForUser error:', error.message);
@@ -195,11 +194,11 @@ class PostgresSessionRepository {
     try {
       const result = await DatabaseConnection.query(query, [userId]);
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         sessionId: row.id,
         createdAt: row.created_at.getTime(),
         lastAccessedAt: row.last_accessed_at.getTime(),
-        expiresAt: row.expires_at.getTime()
+        expiresAt: row.expires_at.getTime(),
       }));
     } catch (error) {
       console.error('[PostgresSessionRepository] GetActiveSessionsForUser error:', error.message);

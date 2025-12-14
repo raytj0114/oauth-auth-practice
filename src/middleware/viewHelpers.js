@@ -21,7 +21,7 @@ export async function viewHelpers(req, res, next) {
     return new Date(timestamp).toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -32,7 +32,7 @@ export async function viewHelpers(req, res, next) {
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 

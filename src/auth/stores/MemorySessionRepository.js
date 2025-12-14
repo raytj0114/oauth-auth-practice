@@ -26,7 +26,7 @@ class MemorySessionRepository {
       userData,
       createdAt: Date.now(),
       expiresAt: Date.now() + this.maxAge,
-      lastAccessedAt: Date.now()
+      lastAccessedAt: Date.now(),
     };
 
     this.sessions.set(sessionId, session);
@@ -56,26 +56,26 @@ class MemorySessionRepository {
 
     return session;
   }
-  
+
   // セッションのユーザーデータを更新
   async updateUserData(sessionId, userData) {
     const session = this.sessions.get(sessionId);
-    
+
     if (!session) {
       console.log(`[MemorySessionRepository] Session not found for update: ${sessionId}`);
       return false;
     }
-    
+
     if (Date.now() > session.expiresAt) {
       console.log(`[MemorySessionRepository] Cannot update expired session: ${sessionId}`);
       this.sessions.delete(sessionId);
       return false;
     }
-    
+
     session.userData = userData;
     session.lastAccessedAt = Date.now();
     console.log(`[MemorySessionRepository] Updated user data in session: ${sessionId}`);
-    
+
     return true;
   }
 
@@ -93,15 +93,15 @@ class MemorySessionRepository {
         this.sessions.delete(sessionId);
         count++;
       }
-    }    
+    }
     return count;
   }
-  
+
   // 期限切れセッションを削除
   async cleanupExpired() {
     const now = Date.now();
     let count = 0;
-    
+
     for (const [sessionId, session] of this.sessions) {
       if (now > session.expiresAt) {
         this.sessions.delete(sessionId);
@@ -127,14 +127,14 @@ class MemorySessionRepository {
           sessionId,
           createdAt: session.createdAt,
           lastAccessedAt: session.lastAccessedAt,
-          expiresAt: session.expiresAt
+          expiresAt: session.expiresAt,
         });
       }
     }
 
     return sessions.sort((a, b) => b.lastAccessedAt - a.lastAccessedAt);
   }
-  
+
   // 全セッション表示(デバッグ用)
   async debug() {
     console.log('\n[MemorySessionRepository] Debug Info:');

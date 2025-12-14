@@ -65,14 +65,17 @@ class SessionManager {
    */
   startCleanupTask() {
     // 1時間ごとにクリーンアップ
-    setInterval(async () => {
-      try {
-        await this.repository.cleanupExpired();
-      } catch (error) {
-        console.error('[SessionManager] Cleanup task error:', error);
-      }
-    }, 60 * 60 * 1000); // 1時間
-    
+    setInterval(
+      async () => {
+        try {
+          await this.repository.cleanupExpired();
+        } catch (error) {
+          console.error('[SessionManager] Cleanup task error:', error);
+        }
+      },
+      60 * 60 * 1000
+    ); // 1時間
+
     console.log('[SessionManager] Cleanup task started (runs every hour)');
   }
 

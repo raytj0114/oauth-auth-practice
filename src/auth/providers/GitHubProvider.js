@@ -15,7 +15,7 @@ class GitHubProvider {
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       scope: this.scope,
-      state: state // CSRF対策
+      state: state, // CSRF対策
     });
 
     const url = `${this.authUrl}?${params.toString()}`;
@@ -32,17 +32,17 @@ class GitHubProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json' // JSONレスポンスを要求
+        Accept: 'application/json', // JSONレスポンスを要求
       },
       body: JSON.stringify({
         client_id: this.clientId,
         client_secret: this.clientSecret,
         code: code,
-        redirect_uri: this.redirectUri
-      })
+        redirect_uri: this.redirectUri,
+      }),
     });
 
-    if(!response.ok) {
+    if (!response.ok) {
       const error = await response.text();
       console.error('[GitHub] Token exchange failed:', error);
       throw new Error('Failed to exchange code for token');
@@ -60,12 +60,12 @@ class GitHubProvider {
 
     const response = await fetch(this.userUrl, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
     });
 
-    if(!response.ok) {
+    if (!response.ok) {
       console.error('[GitHub] Failed to fetch user info');
       throw new Error('Failed to fetch user info');
     }
@@ -80,8 +80,8 @@ class GitHubProvider {
       username: user.login,
       email: user.email,
       avatarUrl: user.avatar_url,
-      raw: user // 元データも保持
-    };  
+      raw: user, // 元データも保持
+    };
   }
 }
 

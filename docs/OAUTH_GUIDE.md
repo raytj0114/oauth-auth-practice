@@ -285,12 +285,12 @@ GitHub → ブラウザ → トークンを直接渡す
 
 ```javascript
 // State生成
-const state = crypto.randomBytes(16).toString("hex");
-pendingStates.set(state, { provider: "github", createdAt: Date.now() });
+const state = crypto.randomBytes(16).toString('hex');
+pendingStates.set(state, { provider: 'github', createdAt: Date.now() });
 
 // State確認
 if (!pendingStates.has(state)) {
-  throw new Error("Invalid state"); // 攻撃を防ぐ
+  throw new Error('Invalid state'); // 攻撃を防ぐ
 }
 pendingStates.delete(state); // 使い捨て
 ```
@@ -315,10 +315,10 @@ pendingStates.delete(state); // 使い捨て
 ```javascript
 // トークン交換
 const response = await fetch(tokenUrl, {
-  method: "POST",
+  method: 'POST',
   headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
   body: JSON.stringify({ code, client_id, client_secret }),
 });
@@ -330,9 +330,9 @@ const response = await fetch(tokenUrl, {
 // トークン交換
 const params = new URLSearchParams({ code, client_id, client_secret });
 const response = await fetch(tokenUrl, {
-  method: "POST",
+  method: 'POST',
   headers: {
-    "Content-Type": "application/x-www-form-urlencoded",
+    'Content-Type': 'application/x-www-form-urlencoded',
   },
   body: params.toString(),
 });

@@ -29,18 +29,12 @@ class PostgresUserRepository {
     const preferences = { theme: 'light', language: 'ja', notifications: true };
     const profile = { bio: '', avatarUrl, location: '', website: '' };
 
-    const values = [
-      userId,
-      username,
-      email,
-      JSON.stringify(preferences),
-      JSON.stringify(profile)
-    ];
+    const values = [userId, username, email, JSON.stringify(preferences), JSON.stringify(profile)];
 
     try {
       const result = await DatabaseConnection.query(query, values);
       const user = this.mapRowToUser(result.rows[0]);
-      
+
       console.log(`[PostgresUserRepository] User created: ${userId}`);
       return user;
     } catch (error) {
@@ -59,7 +53,7 @@ class PostgresUserRepository {
       if (result.rows.length === 0) {
         return null;
       }
-      
+
       return this.mapRowToUser(result.rows[0]);
     } catch (error) {
       console.error('[PostgresUserRepository] FindById error:', error.message);
@@ -111,7 +105,7 @@ class PostgresUserRepository {
     try {
       const result = await DatabaseConnection.query(query, [
         JSON.stringify(updatedPreferences),
-        userId
+        userId,
       ]);
 
       console.log(`[PostgresUserRepository] Updated preferences: ${userId}`);
@@ -143,7 +137,7 @@ class PostgresUserRepository {
     try {
       const result = await DatabaseConnection.query(query, [
         JSON.stringify(updatedProfile),
-        userId
+        userId,
       ]);
 
       console.log(`[PostgresUserRepository] Updated profile: ${userId}`);
@@ -163,7 +157,7 @@ class PostgresUserRepository {
 
       console.log('\n[PostgresUserRepository] Debug Info:');
       console.log('Total users:', result.rows.length);
-    
+
       for (const row of result.rows) {
         console.log(`\nUser: ${row.id}`);
         console.log('  Username:', row.username);
@@ -177,7 +171,7 @@ class PostgresUserRepository {
 
   /**
    * データベースの行をUserオブジェクトに変換
-   * 
+   *
    * PostgreSQLの型 → JavaScript の型
    * - TIMESTAMP → Date
    * - JSONB → Object
@@ -190,7 +184,7 @@ class PostgresUserRepository {
       createdAt: row.created_at.getTime(), // Date → ミリ秒
       lastLoginAt: row.last_login_at.getTime(),
       preferences: row.preferences, // PostgreSQLが自動でパース
-      profile: row.profile
+      profile: row.profile,
     };
   }
 }

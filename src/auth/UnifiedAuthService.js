@@ -56,7 +56,7 @@ class UnifiedAuthService {
     const user = await this.userRepository.create({
       username: username,
       email: email,
-      avatarUrl: null
+      avatarUrl: null,
     });
 
     // 2. 認証情報作成
@@ -77,7 +77,7 @@ class UnifiedAuthService {
         const user = await this.userRepository.create({
           username: username,
           email: email,
-          avatarUrl: null
+          avatarUrl: null,
         });
 
         // 2. 認証情報作成
@@ -99,7 +99,7 @@ class UnifiedAuthService {
     await this.ensureInitialized();
 
     console.log(`[UnifiedAuthService] Local login attempt: ${email}`);
-    
+
     // 認証情報で検証
     const userId = await this.authRepository.verifyLocalPassword(email, password);
 
@@ -130,10 +130,7 @@ class UnifiedAuthService {
     console.log(`[UnifiedAuthService] OAuth login/register: ${provider}`);
 
     // 既存の認証情報を検索
-    const userId = await this.authRepository.findUserByOAuth(
-      provider,
-      oauthUserInfo.providerId
-    );
+    const userId = await this.authRepository.findUserByOAuth(provider, oauthUserInfo.providerId);
 
     if (userId) {
       // 既存ユーザー
@@ -166,7 +163,7 @@ class UnifiedAuthService {
     const user = await this.userRepository.create({
       username: oauthUserInfo.username,
       email: oauthUserInfo.email,
-      avatarUrl: oauthUserInfo.avatarUrl
+      avatarUrl: oauthUserInfo.avatarUrl,
     });
 
     // 2. OAuth認証情報作成
@@ -191,7 +188,7 @@ class UnifiedAuthService {
         const user = await this.userRepository.create({
           username: oauthUserInfo.username,
           email: oauthUserInfo.email,
-          avatarUrl: oauthUserInfo.avatarUrl
+          avatarUrl: oauthUserInfo.avatarUrl,
         });
 
         // 2. OAuth認証情報作成
@@ -214,11 +211,11 @@ class UnifiedAuthService {
   }
 
   // ===== ユーザー情報取得 =====
-  
+
   // ユーザー情報 + 認証方法を取得
   async getUserWithAuths(userId) {
     await this.ensureInitialized();
-    
+
     const user = await this.userRepository.findById(userId);
 
     if (!user) {
@@ -229,7 +226,7 @@ class UnifiedAuthService {
 
     return {
       ...user,
-      linkedProviders: auths
+      linkedProviders: auths,
     };
   }
 
@@ -237,13 +234,13 @@ class UnifiedAuthService {
 
   async updatePreferences(userId, preferences) {
     await this.ensureInitialized();
-    
+
     return await this.userRepository.updatePreferences(userId, preferences);
   }
 
   async updateProfile(userId, profile) {
     await this.ensureInitialized();
-    
+
     return await this.userRepository.updateProfile(userId, profile);
   }
 }

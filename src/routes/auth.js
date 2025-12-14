@@ -12,13 +12,13 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
  */
 function getCookieOptions() {
   const maxAge = parseInt(process.env.SESSION_MAX_AGE);
-  
+
   return {
     httpOnly: true, // JavaScriptからアクセス不可
     secure: NODE_ENV === 'production', // 本番環境ではHTTPSのみ
     sameSite: 'lax', // CSRF対策: 同一サイトからのリクエストのみ
     maxAge: isNaN(maxAge) ? 86400000 : maxAge, // デフォルト24時間
-    path: '/' // 全てのパスで有効
+    path: '/', // 全てのパスで有効
   };
 }
 
@@ -36,7 +36,7 @@ router.get('/:provider', async (req, res) => {
 
     // ログインしていなければ認証開始
     const { provider } = req.params;
-    
+
     // サポートされているプロバイダーか確認
     const supportedProviders = ['github', 'google'];
     if (!supportedProviders.includes(provider)) {
@@ -71,7 +71,9 @@ router.get('/:provider/callback', async (req, res) => {
     // OAuthプロバイダーからのエラー
     if (oauthError) {
       console.log(`[Auth] OAuth error: ${oauthError}`);
-      return res.redirect(`/?error=${encodeURIComponent('Authentication was cancelled or denied')}`);
+      return res.redirect(
+        `/?error=${encodeURIComponent('Authentication was cancelled or denied')}`
+      );
     }
 
     if (!code || !state) {
@@ -80,11 +82,7 @@ router.get('/:provider/callback', async (req, res) => {
     }
 
     // 認証処理
-    const { sessionId, _userInfo } = await AuthManager.handleCallback(
-      provider,
-      code,
-      state
-    );
+    const { sessionId, _userInfo } = await AuthManager.handleCallback(provider, code, state);
 
     // セッションIDをCookieにセット(強化された設定)
     res.cookie('sessionId', sessionId, getCookieOptions());
@@ -95,12 +93,10 @@ router.get('/:provider/callback', async (req, res) => {
     res.redirect('/profile');
   } catch (error) {
     console.error('Callback error:', error);
-    
+
     // 本番環境ではエラー詳細を隠す
-    const errorMessage = NODE_ENV === 'development' 
-      ? error.message 
-      : 'Authentication failed';
-    
+    const errorMessage = NODE_ENV === 'development' ? error.message : 'Authentication failed';
+
     res.redirect(`/?error=${encodeURIComponent(errorMessage)}`);
   }
 });
@@ -115,13 +111,13 @@ router.post('/logout', async (req, res) => {
     } catch (error) {
       console.error('[Auth] Session destroy error:', error);
     }
-    
+
     // Cookieをクリア(同じオプションで)
     res.clearCookie('sessionId', {
       httpOnly: true,
       secure: NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/'
+      path: '/',
     });
   }
   res.redirect('/');

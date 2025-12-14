@@ -17,7 +17,7 @@ function getCsrfSecret() {
     console.warn('[CSRF] Using default secret for development. Set CSRF_SECRET in production.');
     return 'development-csrf-secret-do-not-use-in-production';
   }
-  
+
   // 本番環境でシークレットが設定されていない場合は警告
   console.error('[CSRF] CSRF_SECRET is not set! Generating random secret (will change on restart)');
   return crypto.randomBytes(32).toString('hex');
@@ -27,10 +27,7 @@ function getCsrfSecret() {
  * csrf-csrf の設定
  * Double Submit Cookie パターンを使用
  */
-const {
-  generateToken,
-  doubleCsrfProtection,
-} = doubleCsrf({
+const { generateToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => getCsrfSecret(),
   cookieName: '__csrf',
   cookieOptions: {
@@ -79,19 +76,14 @@ function csrfErrorHandler(err, req, res, next) {
     });
 
     return res.status(403).render('error', {
-      ...res.locals,  // res.localsの全プロパティを展開
+      ...res.locals, // res.localsの全プロパティを展開
       title: 'Forbidden',
       errorCode: 403,
-      message: 'Invalid or missing security token. Please refresh the page and try again.'
+      message: 'Invalid or missing security token. Please refresh the page and try again.',
     });
   }
 
   next(err);
 }
 
-export {
-  generateToken,
-  doubleCsrfProtection,
-  csrfTokenMiddleware,
-  csrfErrorHandler,
-};
+export { generateToken, doubleCsrfProtection, csrfTokenMiddleware, csrfErrorHandler };

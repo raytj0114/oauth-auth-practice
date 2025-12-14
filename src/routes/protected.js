@@ -17,17 +17,17 @@ router.get('/profile', requireAuth, async (req, res) => {
         ...res.locals,
         title: 'User Not Found',
         errorCode: 404,
-        message: 'Your user account could not be found.'
+        message: 'Your user account could not be found.',
       });
     }
 
     const linkedProviders = user.linkedProviders || [];
- 
+
     res.render('profile', {
       title: `Profile - ${user.username}`,
       user,
       linkedProviders,
-      success: req.query.success || null
+      success: req.query.success || null,
     });
   } catch (error) {
     console.error('Profile page error:', error);
@@ -35,13 +35,13 @@ router.get('/profile', requireAuth, async (req, res) => {
       ...res.locals,
       title: 'Server Error',
       errorCode: 500,
-      message: 'Failed to load profile page.'
+      message: 'Failed to load profile page.',
     });
   }
 });
 
 // 設定更新
-router.post('/profile/preferences', requireAuth, async (req, res) => {  
+router.post('/profile/preferences', requireAuth, async (req, res) => {
   try {
     const { theme } = req.body;
 
@@ -51,18 +51,18 @@ router.post('/profile/preferences', requireAuth, async (req, res) => {
     if (!['light', 'dark'].includes(theme)) {
       throw new Error('Invalid theme value');
     }
-    
+
     // UserRepository を更新
     const updatedUser = await UnifiedAuthService.updatePreferences(req.user.id, { theme });
-    
+
     // セッションも更新
     const sessionId = req.cookies.sessionId;
     if (sessionId) {
       await SessionManager.updateUserData(sessionId, updatedUser);
     }
-    
+
     console.log('[Profile] Theme updated successfully');
-    
+
     // 成功メッセージ付きでリダイレクト
     res.redirect('/profile?success=Preferences updated successfully');
   } catch (error) {
@@ -71,7 +71,7 @@ router.post('/profile/preferences', requireAuth, async (req, res) => {
       ...res.locals,
       title: 'Update Failed',
       errorCode: 500,
-      message: error.message
+      message: error.message,
     });
   }
 });

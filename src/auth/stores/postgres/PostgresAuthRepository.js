@@ -55,7 +55,7 @@ class PostgresAuthRepository {
     `;
 
     const values = [authId, userId, email, passwordHash];
-    
+
     try {
       await DatabaseConnection.query(query, values);
       console.log(`[PostgresAuthRepository] Local auth created: ${authId}`);
@@ -69,7 +69,7 @@ class PostgresAuthRepository {
   // メール/パスワードで認証
   async verifyLocalPassword(email, password) {
     console.log(`[PostgresAuthRepository] Verifying password for: ${email}`);
-    
+
     const query = `
       SELECT user_id, password_hash
       FROM authentications
@@ -103,7 +103,7 @@ class PostgresAuthRepository {
   }
 
   // ===== OAuth認証 =====
-  
+
   // OAuth認証を作成
   async createOAuth(userId, provider, providerId, email) {
     console.log(`[PostgresAuthRepository] Creating OAuth auth: ${provider} for user: ${userId}`);
@@ -177,11 +177,11 @@ class PostgresAuthRepository {
     try {
       const result = await DatabaseConnection.query(query, [userId]);
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         id: row.id,
         provider: row.provider,
         email: row.email,
-        createdAt: row.created_at.getTime()
+        createdAt: row.created_at.getTime(),
       }));
     } catch (error) {
       console.error('[PostgresAuthRepository] FindAuthsByUserId error:', error.message);
@@ -198,10 +198,10 @@ class PostgresAuthRepository {
 
     try {
       const result = await DatabaseConnection.query(query, []);
-    
+
       console.log('\n[PostgresAuthRepository] Debug Info:');
       console.log('Total authentications:', result.rows.length);
-    
+
       for (const row of result.rows) {
         console.log(`\nAuth: ${row.id}`);
         console.log('  UserId:', row.user_id);

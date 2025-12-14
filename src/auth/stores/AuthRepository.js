@@ -58,7 +58,7 @@ class AuthRepository {
       providerId: null,
       email: email,
       passwordHash: passwordHash,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
 
     this.authentications.set(authId, auth);
@@ -76,7 +76,7 @@ class AuthRepository {
   // メール/パスワードで認証を探す
   async verifyLocalPassword(email, password) {
     console.log(`[AuthRepository] Verifying password for: ${email}`);
-    
+
     const authIds = this.emailIndex.get(email);
     if (!authIds) {
       console.log('[AuthRepository] No auth found for email');
@@ -103,7 +103,7 @@ class AuthRepository {
   }
 
   // ===== OAuth認証 =====
-  
+
   // OAuth認証を作成
   createOAuth(userId, provider, providerId, email) {
     console.log(`[AuthRepository] Creating OAuth auth: ${provider} for user: ${userId}`);
@@ -123,7 +123,7 @@ class AuthRepository {
       providerId: providerId,
       email: email,
       passwordHash: null,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
 
     this.authentications.set(authId, auth);
@@ -167,19 +167,19 @@ class AuthRepository {
           id: auth.id,
           provider: auth.provider,
           email: auth.email,
-          createdAt: auth.createdAt
+          createdAt: auth.createdAt,
         });
       }
     }
 
-    return auths; 
+    return auths;
   }
 
   // デバッグ
   debug() {
     console.log('\n[AuthRepository] Debug Info:');
     console.log('Total authentications:', this.authentications.size);
-    
+
     for (const [authId, auth] of this.authentications) {
       console.log(`\nAuth: ${authId}`);
       console.log(' UserId:', auth.userId);
